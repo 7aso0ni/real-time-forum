@@ -166,6 +166,14 @@ export async function mainPage() {
 }
 
 export async function messagePage() {
+  const userStatus = await checkIfUserLoggedIn();
+
+  // check if the user logged in and if not redirect
+  if (!userStatus) {
+    window.localStorage.setItem("currentPage", "login");
+    window.location.reload();
+  }
+
   document.body.innerHTML = `
     <div class="main-content">
       <div class="all-users" id="all-users"></div>
@@ -187,9 +195,14 @@ export async function messagePage() {
   `;
 
   const messagesDiv = document.querySelector(".messages");
-  const userContainer = document.querySelector(".all-users");
+  const usersContainer = document.querySelector(".all-users");
   const data = {};
+  const increment = 20;
   let isUserClicked = false;
+  let allMessages = [];
+  let currentIndex = 0;
+  let loadingMore = false;
+  let activeChatUser = null;
 
   async function initializeUsers() {
     // get all the users from the backend
@@ -199,19 +212,35 @@ export async function messagePage() {
     const index = users.indexOf(currentUser);
 
     if (index > -1) users.splice(index, 1);
-    users.forEach((user) => {
-      const div = document.createElement("div");
+    users.forEach(async (user) => {
+      const userContainer = document.createElement("div");
+      const nameContainer = document.createElement("div");
+      const statusContainer = document.createElement("div");
+
+      // get all relevant details of the user
+      const userDetails = await getUserDetails(user);
+
       if (currentUser !== user) {
-        div.className = "user";
-        div.textContent = user;
-        userContainer.appendChild(div);
+        userContainer.className = "user";
+
+        nameContainer.className = "user-name";
+        statusContainer.className = "status";
+        nameContainer.textContent = user;
+        statusContainer.textContent = userDetails["status"];
+        userContainer.appendChild(nameContainer);
+        userContainer.appendChild(statusContainer);
+
+        usersContainer.appendChild(userContainer);
       }
 
       // display the user and get the messages of that user
-      div.addEventListener("click", async () => {
+      userContainer.addEventListener("click", async () => {
+        // reset the index if the user is clicked again
+        currentIndex = 0;
+        activeChatUser = user;
+
         const selectedUsername = document.querySelector(".selected-username");
         const lastLoginContainer = document.querySelector(".last-login");
-        const userDetails = await getUserDetails(user);
 
         selectedUsername.textContent = userDetails["username"];
 
@@ -228,20 +257,38 @@ export async function messagePage() {
         isUserClicked = true;
         data["receiver"] = user;
         // get the user messages
-        const messages = await getUserMessages(user);
+        allMessages = await getUserMessages(user);
+
+        // if there are no previous chat set the array to empty instead of null
+        if (allMessages === null) allMessages = [];
+        allMessages.reverse();
         messagesDiv.innerHTML = "";
 
-        // if the array is empty exit
-        if (messages.length === 0 || messages == null) return;
-
-        messages.forEach((message) => {
-          updateMessages(message);
-        });
+        // Render initial set of messages
+        renderMessages(true); // Pass true to scroll to the bottom
       });
     });
   }
 
-  function updateMessages(message) {
+  function renderMessages(scrollToBottom = false) {
+    const endIndex = Math.min(currentIndex + increment, allMessages.length);
+    const messagesToRender = allMessages.slice(currentIndex, endIndex);
+    messagesToRender.reverse();
+
+    // Prepend messages in reverse order
+    messagesToRender.reverse().forEach((message) => {
+      updateMessages(message, true);
+    });
+
+    currentIndex = endIndex;
+
+    if (scrollToBottom) {
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  }
+
+  function updateMessages(message, prepend = false) {
+    // if the user did not click on any user don't display
     if (!isUserClicked) return;
     const messageContainer = document.createElement("div");
 
@@ -255,14 +302,39 @@ export async function messagePage() {
       ? (messageContainer.className = "message-author")
       : (messageContainer.className = "message-receiver");
 
-    messagesDiv.appendChild(messageContainer);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    if (prepend) {
+      messagesDiv.prepend(messageContainer);
+    } else {
+      messagesDiv.appendChild(messageContainer);
+    }
   }
 
   // WebSocket message handler
   window.handleWebSocketMessage = (message) => {
-    updateMessages(message);
+    // Check if the message is for the currently active chat
+    if (
+      (message.sender === activeChatUser && message.receiver === currentUser) ||
+      (message.sender === currentUser && message.receiver === activeChatUser)
+    ) {
+      updateMessages(message);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to the bottom on new message
+    }
   };
+
+  messagesDiv.addEventListener("scroll", async () => {
+    if (
+      messagesDiv.scrollTop === 0 &&
+      currentIndex < allMessages.length &&
+      !loadingMore
+    ) {
+      loadingMore = true;
+      const oldHeight = messagesDiv.scrollHeight;
+      renderMessages();
+      // Maintain scroll position
+      messagesDiv.scrollTop = messagesDiv.scrollHeight - oldHeight;
+      loadingMore = false;
+    }
+  });
 
   document.querySelector(".message-section").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -274,6 +346,8 @@ export async function messagePage() {
     data["created_at"] = date;
 
     sendMessage(data);
+
+    // clear the input after sending the message
     document.querySelector(".message-input").value = "";
   });
 
