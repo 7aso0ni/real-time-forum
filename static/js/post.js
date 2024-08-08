@@ -88,11 +88,15 @@ export function displayPosts(posts) {
               <p><small>Posted by ${post.nickname} on ${new Date(
       post.created_at
     ).toLocaleString()}</small></p>
-              <button onclick="toggleComments(${post.id})">View Comments</button>
-              <div id="comments-section-${post.id}" class="comments-section" style="display: none;">
+              <button class="main-button" onclick="toggleComments(${
+                post.id
+              })">View Comments</button>
+              <div id="comments-section-${
+                post.id
+              }" class="comments-section" style="display: none;">
                 <form id="comment-form-${post.id}">
                   <textarea name="content" placeholder="Add a comment" required></textarea>
-                  <button type="submit">Post Comment</button>
+                  <button class="main-button" type="submit">Post Comment</button>
                 </form>
                 <div id="comments-${post.id}" class="comments-container"></div>
               </div>

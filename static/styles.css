@@ -3,18 +3,90 @@ body {
   background-color: #f0f0f0;
   margin: 0;
   padding: 0;
+  height: 100vh;
+}
+
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  padding: 20px;
+}
+
+.nav button {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  outline: inherit;
+  text-decoration: none;
+  position: relative;
+}
+
+.nav button::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 1px;
+  left: 0;
+  bottom: -2px;
+  background-color: currentColor;
+  transition: width 0.3s ease;
+}
+
+.nav button:hover::after {
+  width: 100%;
 }
 
 .main-content {
   overflow: hidden;
-  display: flex;
-  justify-content: center;
-  flex-direction: row;
   height: 100vh;
+  display: flex;
   width: 100%;
+  border-radius: 8px;
+  /* box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); */
+  gap: 20px;
+}
+
+.forum-container {
+  /* margin-top: 30px; */
+  border-radius: 10px;
+  background-color: #fff;
+  padding: 20px;
+  width: 70%;
+}
+
+.user-list {
+  display: flex;
+  /* justify-content: center; */
+  flex-direction: column;
+  border-radius: 10px;
+  /* padding-left: 10px; */
+  background-color: white;
+  padding: 10px 0;
+  width: 25%;
+  overflow-y: auto;
+  max-height: 300px;
+  /* margin-top: 30px; */
+}
+
+.user-container {
+  display: flex;
+  padding: 10px;
+  align-items: center;
+  flex-direction: column;
 }
 
 /* ---------------message section--------------- */
+.main-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  }
+
 .all-users {
   background-color: #ebebeb;
   width: 20%;
@@ -98,7 +170,7 @@ body {
 }
 
 .message-content {
-  font-size: 20px;
+  font-size: 32px;
   padding: 10px 25px;
 }
 
@@ -145,14 +217,6 @@ body {
   padding: 20px;
 }
 
-#login-register,
-#main-content {
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
 form {
   display: flex;
   flex-direction: column;
@@ -167,7 +231,7 @@ textarea {
   border-radius: 4px;
 }
 
-button {
+.main-button {
   padding: 10px;
   font-size: 1em;
   background-color: #007bff;
@@ -177,7 +241,7 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+.main-button:hover {
   background-color: #0056b3;
 }
 

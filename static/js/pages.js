@@ -17,12 +17,12 @@ import {
   sendMessage,
   getUserMessages,
   getUserDetails,
+  // connectUserUpdateWebSocket,
 } from "./chat.js";
 
 const currentUser = localStorage.getItem("username");
 
 export function registerPage() {
-  // Clear all content from the body
   document.body.innerHTML = "";
 
   document.body.innerHTML = `
@@ -43,7 +43,6 @@ export function registerPage() {
         </div>
     `;
 
-  // render login page
   document.querySelector(".login-button").addEventListener("click", () => {
     navigateTo(loginPage);
   });
@@ -53,13 +52,11 @@ export function registerPage() {
     .addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      // if no errors were found
       if (await registerUser()) {
         navigateTo(mainPage);
       }
     });
 
-  // setting current page on local storage to make the page persist across page refresh
   window.localStorage.setItem("currentPage", "register");
 }
 
@@ -89,7 +86,6 @@ export function loginPage() {
       </div>
   `;
 
-  // render register page
   document.querySelector(".register-button").addEventListener("click", () => {
     navigateTo(registerPage);
   });
@@ -107,26 +103,59 @@ export function loginPage() {
 }
 
 export async function mainPage() {
+  const isLoggedIn = await checkIfUserLoggedIn();
+
+  if (!isLoggedIn) {
+    window.localStorage.setItem("currentPage", "login");
+    window.location.reload();
+  }
+
   document.body.innerHTML = "";
   document.body.innerHTML = `
-        <div id="main-content">
-          <div class="nav"></div>
-          <form id="post-form">
-            <h2>Create Post</h2>
-            <input type="text" name="category" placeholder="Category" required />
-            <textarea name="content" placeholder="Content" required></textarea>
-            <button type="submit">Post</button>
-          </form>
+        <div class="nav"></div>
+  
+        <div class="main-content">
+          <div class="forum-container">
+            <form id="post-form">
+              <h2>Create Post</h2>
+              <input type="text" name="category" placeholder="Category" required />
+              <textarea name="content" placeholder="Content" required></textarea>
+              <button type="submit" class="main-button">Post</button>
+            </form>
 
-          <h2>Posts</h2>
+            <h2>Posts</h2>
 
-          <div id="posts">
+            <div id="posts">
             <!-- Posts will be dynamically loaded here -->
+            </div>
           </div>
-      </div>
+            <div class="user-list"></div>
+        </div>
   `;
 
-  const isLoggedIn = await checkIfUserLoggedIn();
+  const users = await getAllUsers();
+  const userList = document.querySelector(".user-list");
+  users.forEach(async (user) => {
+    if (user === currentUser) {
+      return;
+    }
+    const details = await getUserDetails(user);
+    console.log(details);
+    const userContainer = document.createElement("div");
+    userContainer.className = "user-container";
+
+    const usernameContainer = document.createElement("div");
+    usernameContainer.className = "username";
+    const statusContainer = document.createElement("div");
+    statusContainer.className = "status";
+
+    usernameContainer.textContent = details["username"];
+    statusContainer.textContent = details["status"];
+
+    userContainer.append(usernameContainer, statusContainer);
+
+    userList.appendChild(userContainer);
+  });
 
   if (isLoggedIn) {
     document.querySelector(".nav").innerHTML = `
@@ -134,13 +163,12 @@ export async function mainPage() {
     <button id="chat">Chat</div>
     `;
 
-    document.querySelector("#logout-button").addEventListener("click", () => {
-      // logout the user
-      logoutUser();
-
-      // after logging out render login page (temporary)
-      navigateTo(loginPage);
-    });
+    document
+      .querySelector("#logout-button")
+      .addEventListener("click", async () => {
+        await logoutUser();
+        navigateTo(loginPage);
+      });
 
     document.querySelector("#chat").addEventListener("click", () => {
       navigateTo(messagePage);
@@ -162,20 +190,21 @@ export async function mainPage() {
     createPost();
   });
 
+  connectUserUpdateWebSocket();
+
   window.localStorage.setItem("currentPage", "main");
 }
 
 export async function messagePage() {
   const userStatus = await checkIfUserLoggedIn();
 
-  // check if the user logged in and if not redirect
   if (!userStatus) {
     window.localStorage.setItem("currentPage", "login");
     window.location.reload();
   }
 
   document.body.innerHTML = `
-    <div class="main-content">
+    <div class="main-container">
       <div class="all-users" id="all-users"></div>
       <div class="selected-user" id="selected-users">
           <div class="user-about">
@@ -188,7 +217,7 @@ export async function messagePage() {
           <div class="messages" id="messages"></div>
           <form class="message-section" id="message-section">
             <input type="text" class="message-input" id="message-input"/>
-            <button type="submit">Submit</button>
+            <button class="main-button" type="submit">Submit</button>
           </form>
       </div>
     </div>
@@ -197,7 +226,7 @@ export async function messagePage() {
   const messagesDiv = document.querySelector(".messages");
   const usersContainer = document.querySelector(".all-users");
   const data = {};
-  const increment = 20;
+  const increment = 10;
   let isUserClicked = false;
   let allMessages = [];
   let currentIndex = 0;
@@ -205,10 +234,8 @@ export async function messagePage() {
   let activeChatUser = null;
 
   async function initializeUsers() {
-    // get all the users from the backend
     const users = await getAllUsers();
 
-    // remove the current username from the array
     const index = users.indexOf(currentUser);
 
     if (index > -1) users.splice(index, 1);
@@ -217,7 +244,6 @@ export async function messagePage() {
       const nameContainer = document.createElement("div");
       const statusContainer = document.createElement("div");
 
-      // get all relevant details of the user
       const userDetails = await getUserDetails(user);
 
       if (currentUser !== user) {
@@ -233,9 +259,7 @@ export async function messagePage() {
         usersContainer.appendChild(userContainer);
       }
 
-      // display the user and get the messages of that user
       userContainer.addEventListener("click", async () => {
-        // reset the index if the user is clicked again
         currentIndex = 0;
         activeChatUser = user;
 
@@ -244,28 +268,22 @@ export async function messagePage() {
 
         selectedUsername.textContent = userDetails["username"];
 
-        // check if user online or offline
         if (userDetails["status"] === "ONLINE") {
           lastLoginContainer.textContent = "Online";
         } else {
-          // convert the passed date into a javascript date
           const lastLoginToDate = new Date(userDetails["last_login"]);
-          // format it into the current system date
           lastLoginContainer.textContent = lastLoginToDate.toLocaleDateString();
         }
 
         isUserClicked = true;
         data["receiver"] = user;
-        // get the user messages
         allMessages = await getUserMessages(user);
 
-        // if there are no previous chat set the array to empty instead of null
         if (allMessages === null) allMessages = [];
         allMessages.reverse();
         messagesDiv.innerHTML = "";
 
-        // Render initial set of messages
-        renderMessages(true); // Pass true to scroll to the bottom
+        renderMessages(true);
       });
     });
   }
@@ -275,7 +293,6 @@ export async function messagePage() {
     const messagesToRender = allMessages.slice(currentIndex, endIndex);
     messagesToRender.reverse();
 
-    // Prepend messages in reverse order
     messagesToRender.reverse().forEach((message) => {
       updateMessages(message, true);
     });
@@ -288,7 +305,6 @@ export async function messagePage() {
   }
 
   function updateMessages(message, prepend = false) {
-    // if the user did not click on any user don't display
     if (!isUserClicked) return;
     const messageContainer = document.createElement("div");
 
@@ -309,15 +325,13 @@ export async function messagePage() {
     }
   }
 
-  // WebSocket message handler
   window.handleWebSocketMessage = (message) => {
-    // Check if the message is for the currently active chat
     if (
       (message.sender === activeChatUser && message.receiver === currentUser) ||
       (message.sender === currentUser && message.receiver === activeChatUser)
     ) {
       updateMessages(message);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to the bottom on new message
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
   };
 
@@ -330,7 +344,6 @@ export async function messagePage() {
       loadingMore = true;
       const oldHeight = messagesDiv.scrollHeight;
       renderMessages();
-      // Maintain scroll position
       messagesDiv.scrollTop = messagesDiv.scrollHeight - oldHeight;
       loadingMore = false;
     }
@@ -347,17 +360,53 @@ export async function messagePage() {
 
     sendMessage(data);
 
-    // clear the input after sending the message
     document.querySelector(".message-input").value = "";
   });
 
   await initializeUsers();
   connectWebSocket();
+  connectUserUpdateWebSocket();
+
   window.localStorage.setItem("currentPage", "chat");
 }
 
-// making the functions globally accessible to navigate forward and backwards
 window.registerPage = registerPage;
 window.loginPage = loginPage;
 window.mainPage = mainPage;
 window.messagePage = messagePage;
+
+window.handleUserUpdate = function (update) {
+  const userList = document.querySelector(".user-list");
+  if (!userList) return;
+
+  if (update.type === "register" || update.type === "login") {
+    // Add or update user status in the list
+    let userContainer = document.getElementById(`user-${update.username}`);
+    if (!userContainer) {
+      userContainer = document.createElement("div");
+      userContainer.className = "user-container";
+      userContainer.id = `user-${update.username}`;
+
+      const usernameContainer = document.createElement("div");
+      usernameContainer.className = "username";
+      usernameContainer.textContent = update.username;
+
+      const statusContainer = document.createElement("div");
+      statusContainer.className = "status";
+      statusContainer.textContent = update.type === "login" ? "ONLINE" : "";
+
+      userContainer.append(usernameContainer, statusContainer);
+      userList.appendChild(userContainer);
+    } else {
+      const statusContainer = userContainer.querySelector(".status");
+      statusContainer.textContent = update.type === "login" ? "ONLINE" : "";
+    }
+  } else if (update.type === "logout") {
+    // Update user status to offline
+    const userContainer = document.getElementById(`user-${update.username}`);
+    if (userContainer) {
+      const statusContainer = userContainer.querySelector(".status");
+      statusContainer.textContent = "OFFLINE";
+    }
+  }
+};

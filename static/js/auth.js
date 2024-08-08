@@ -23,23 +23,32 @@ export async function registerUser() {
       throw new Error(error);
     }
 
-    const body = await response.json()
-    localStorage.setItem("username", body.username)
+    const body = await response.json();
+    localStorage.setItem("username", body.username);
 
     return true;
   } catch (error) {
-    console.error(error);
+    console.error("Registration error:", error);
     return false;
   }
 }
 
 export async function loginUser() {
-  const data = new FormData(document.querySelector("#login-form"));
+  const formData = new FormData(document.querySelector("#login-form"));
+  const data = {};
+  formData.forEach((value, key) => {
+    data[key] = value;
+  });
+
+  const jsonData = JSON.stringify(data);
 
   try {
     const response = await fetch("/login", {
       method: "POST",
-      body: data,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonData,
       credentials: "include", // Ensure cookies are included in the request
     });
 
@@ -48,11 +57,11 @@ export async function loginUser() {
       throw new Error(error);
     }
 
-    const body = await response.json()
-    localStorage.setItem("username", body.username)
+    const body = await response.json();
+    localStorage.setItem("username", body.username);
     return true;
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
     return false;
   }
 }
@@ -61,6 +70,7 @@ export async function logoutUser() {
   try {
     const response = await fetch("/logout", {
       method: "POST",
+      credentials: "include", // Ensure cookies are included in the request
     });
 
     if (!response.ok) {
@@ -68,9 +78,11 @@ export async function logoutUser() {
       throw new Error(error);
     }
 
-    localStorage.removeItem("username")
+    localStorage.removeItem("username");
+    return true;
   } catch (error) {
-    console.error(error);
+    console.error("Logout error:", error);
+    return false;
   }
 }
 
@@ -82,7 +94,6 @@ export async function checkIfUserLoggedIn() {
     });
 
     if (response.status === 401) {
-      // throw an error with the error message from the backend
       return false;
     }
 
@@ -92,7 +103,7 @@ export async function checkIfUserLoggedIn() {
 
     return true;
   } catch (error) {
-    console.error(error);
+    console.error("Check login status error:", error);
     return false;
   }
 }

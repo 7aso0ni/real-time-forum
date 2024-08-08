@@ -1,4 +1,5 @@
 let ws;
+let userUpdateWs;
 
 export async function getAllUsers() {
   try {
@@ -16,20 +17,21 @@ export async function getAllUsers() {
 }
 
 export async function getUserDetails(username) {
-  try {
-    const response = await fetch("/fetch_user_data", {
-      method: "POST",
-      body: JSON.stringify({ username: username }),
-    });
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
-    }
+  ws = new WebSocket('ws://localhost:8080/fetch_user_data');
+  ws.onopen = function () {
+    ws.send(JSON.stringify({ username: username }));
+  };
 
-    return await response.json();
-  } catch (error) {
-    console.log(error);
-  }
+  ws.onmessage = function (event) {
+    const userDetails = JSON.parse(event.data);
+    console.log(userDetails);
+    // Update UI with user details
+    window.handleUserDetails(userDetails);
+  };
+
+  ws.onclose = function (error) {
+    console.log("WebSocket connection closed" + error);
+  };
 }
 
 export async function getUserMessages(user) {
@@ -50,7 +52,7 @@ export async function getUserMessages(user) {
 
 export function connectWebSocket() {
   const username = localStorage.getItem("username");
-  ws = new WebSocket(`ws://localhost:8080/ws`);
+  ws = new WebSocket(`ws://localhost:8080/chat`);
 
   ws.onopen = function () {
     ws.send(JSON.stringify({ type: "init", sender: username }));
@@ -84,4 +86,25 @@ export function sendMessage(message) {
     "WebSocket is not open. Ready state is:",
     ws ? ws.readyState : "undefined"
   );
+}
+
+export function connectUserUpdateWebSocket() {
+  console.log("hello")
+  userUpdateWs = new WebSocket('ws://localhost:8080/ws');
+
+  userUpdateWs.onopen = function () {
+    console.log("Connected to user update WebSocket");
+  };
+
+  userUpdateWs.onmessage = function (event) {
+    const update = JSON.parse(event.data);
+    console.log("User update received:", update);
+    window.handleUserUpdate(update);
+  };
+
+  userUpdateWs.onclose = function (error) {
+    console.log("User update WebSocket connection closed" + error);
+  };
+
+  return userUpdateWs;
 }

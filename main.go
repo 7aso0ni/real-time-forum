@@ -21,7 +21,6 @@ var (
 	upgrader       = websocket.Upgrader{}
 	mu             sync.Mutex
 	connectedUsers = make(map[string]*websocket.Conn)
-	wg             sync.WaitGroup
 	currentDate    = time.Now()
 )
 
@@ -76,6 +75,11 @@ type ErrorMessage struct {
 	Error string `json:"error"`
 }
 
+type UserUpdate struct {
+	Type     string `json:"type"`
+	Username string `json:"username"`
+}
+
 func main() {
 	var err error
 	db, err = sql.Open("sqlite3", "./forum.db")
@@ -96,10 +100,57 @@ func main() {
 	http.HandleFunc("/fetch_users", FetchUsersHandler)
 	http.HandleFunc("/fetch_user_data", FetchUserDetails)
 	http.HandleFunc("/get_messages", GetMessages)
+	http.HandleFunc("/chat", ChatHandler)
 	http.HandleFunc("/ws", wsHandler)
 
 	fmt.Println("Server started at :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func wsHandler(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
+		return
+	}
+	defer conn.Close()
+
+	for {
+		var msg Message
+		err := conn.ReadJSON(&msg)
+		if err != nil {
+			log.Println("Read:", err)
+			break
+		}
+
+		if msg.Type == "register" || msg.Type == "login" || msg.Type == "logout" {
+			broadcastUserUpdate(msg.Type, msg.Sender)
+		}
+	}
+}
+
+func broadcastUserUpdate(updateType, username string) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	update := UserUpdate{
+		Type:     updateType,
+		Username: username,
+	}
+
+	for _, conn := range connectedUsers {
+		if err := conn.WriteJSON(update); err != nil {
+			log.Println("Broadcast error:", err)
+			conn.Close()
+			// Remove disconnected user
+			for uname, userConn := range connectedUsers {
+				if userConn == conn {
+					delete(connectedUsers, uname)
+					break
+				}
+			}
+		}
+	}
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -171,11 +222,8 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// w.WriteHeader(http.StatusOK)
-	// w.Write([]byte("Login successful"))
-
-	// log.Println("User registered successfully:", user.Nickname)
-	// w.WriteHeader(http.StatusCreated)
+	// Broadcast the registration update
+	broadcastUserUpdate("register", user.Nickname)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -237,8 +285,8 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// w.WriteHeader(http.StatusOK)
-	// w.Write([]byte("Login successful"))
+	// Broadcast the login update
+	broadcastUserUpdate("login", username)
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -270,6 +318,14 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var username string
+	err = db.QueryRow("SELECT nickname FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		log.Printf("Error getting username: %v", err)
+		http.Error(w, "Error getting username", http.StatusInternalServerError)
+		return
+	}
+
 	if _, err = db.Exec("UPDATE users SET status = 'OFFLINE' WHERE id = ?", userID); err != nil {
 		log.Printf("updating failed")
 		http.Error(w, "Error, something went wrong with status change", http.StatusInternalServerError)
@@ -285,6 +341,9 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("User logged out successfully")
 	w.WriteHeader(http.StatusOK)
+
+	// Broadcast the logout update
+	broadcastUserUpdate("logout", username)
 }
 
 func createPostHandler(w http.ResponseWriter, r *http.Request) {
@@ -380,43 +439,50 @@ func FetchUsersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func FetchUserDetails(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+	// Upgrade the HTTP connection to a WebSocket connection
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
 		return
 	}
+	defer conn.Close()
 
-	// one time use structs declared as variables
-	var user struct {
-		Username string `json:"username"`
-	}
+	for {
+		var message struct {
+			Username string `json:"username"`
+		}
 
-	var receiverInfo struct {
-		Username  string    `json:"username" db:"nickname"`
-		Status    string    `json:"status" db:"status"`
-		LastLogin *time.Time `json:"last_login" db:"last_login"`
-	}
+		var receiverInfo struct {
+			Username  string     `json:"username" db:"nickname"`
+			Status    string     `json:"status" db:"status"`
+			LastLogin *time.Time `json:"last_login" db:"last_login"`
+		}
 
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "Error reading data", http.StatusInternalServerError)
-		return
-	}
+		// Read message from WebSocket client
+		if err := conn.ReadJSON(&message); err != nil {
+			fmt.Println("Error reading json.", err)
+			return
+		}
 
-	// get the id from the username passed
-	var userID int
-	if err := db.QueryRow("SELECT id FROM users WHERE nickname = ?", user.Username).Scan(&userID); err != nil {
-		http.Error(w, "Error getting user data", http.StatusInternalServerError)
-		return
-	}
+		// Get the id from the username passed
+		var userID int
+		if err := db.QueryRow("SELECT id FROM users WHERE nickname = ?", message.Username).Scan(&userID); err != nil {
+			http.Error(w, "Error getting user data", http.StatusInternalServerError)
+			return
+		}
 
-	// get the important info of the selected user
-	if err := db.QueryRow("SELECT nickname, status, last_login FROM users WHERE id = ?", userID).Scan(&receiverInfo.Username, &receiverInfo.Status, &receiverInfo.LastLogin); err != nil {
-		fmt.Println(err)
-		http.Error(w, "Error getting receiver data", http.StatusInternalServerError)
-		return
-	}
+		// Get the important info of the selected user
+		if err := db.QueryRow("SELECT nickname, status, last_login FROM users WHERE id = ?", userID).Scan(&receiverInfo.Username, &receiverInfo.Status, &receiverInfo.LastLogin); err != nil {
+			fmt.Println(err)
+			http.Error(w, "Error getting receiver data", http.StatusInternalServerError)
+			return
+		}
 
-	if err := json.NewEncoder(w).Encode(receiverInfo); err != nil {
-		http.Error(w, "Error sending data", http.StatusInternalServerError)
+		// Send the user details back to the WebSocket client
+		if err := conn.WriteJSON(receiverInfo); err != nil {
+			fmt.Println("Error sending json.", err)
+			return
+		}
 	}
 }
 
@@ -508,7 +574,7 @@ func fetchCommentsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func wsHandler(w http.ResponseWriter, r *http.Request) {
+func ChatHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("Upgrade:", err)
@@ -556,10 +622,11 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		ch := make(chan Result, 2)
+		var wg sync.WaitGroup
 		wg.Add(2)
 
-		go getUserId(msg.Sender, ch)
-		go getUserId(msg.Receiver, ch)
+		go getUserId(msg.Sender, ch, &wg)
+		go getUserId(msg.Receiver, ch, &wg)
 
 		go func() {
 			wg.Wait()
@@ -618,6 +685,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
 func GetMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -635,11 +703,12 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ch := make(chan Result, 2)
+	var wg sync.WaitGroup
 	wg.Add(2)
 
 	// Get the IDs of both the sender and the receiver
-	go getUserId(contacts.Sender, ch)
-	go getUserId(contacts.Receiver, ch)
+	go getUserId(contacts.Sender, ch, &wg)
+	go getUserId(contacts.Receiver, ch, &wg)
 
 	go func() {
 		wg.Wait()
@@ -780,7 +849,7 @@ func isUserLoggedInHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func getUserId(username string, ch chan Result) {
+func getUserId(username string, ch chan Result, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var userID int
