@@ -17,7 +17,7 @@ import {
   sendMessage,
   getUserMessages,
   getUserDetails,
-  // connectUserUpdateWebSocket,
+  connectUserUpdateWebSocket,
 } from "./chat.js";
 
 const currentUser = localStorage.getItem("username");
