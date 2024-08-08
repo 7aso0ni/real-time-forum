@@ -13,7 +13,7 @@ import (
 
 func main() {
 	var err error
-	rtf.DB, err = sql.Open("sqlite3", "./forum.DB")
+	rtf.DB, err = sql.Open("sqlite3", "./forum.db")
 	if err != nil {
 		log.Fatal(err)
 	}

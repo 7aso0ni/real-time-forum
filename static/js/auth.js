@@ -34,13 +34,10 @@ export async function registerUser() {
 }
 
 export async function loginUser() {
-  const formData = new FormData(document.querySelector("#login-form"));
-  const data = {};
-  formData.forEach((value, key) => {
-    data[key] = value;
-  });
+  const identifier = document.querySelector("#identifier").value
+  const password = document.querySelector("#password").value
 
-  const jsonData = JSON.stringify(data);
+  const jsonData = JSON.stringify({identifier, password});
 
   try {
     const response = await fetch("/login", {

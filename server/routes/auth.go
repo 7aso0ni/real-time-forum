@@ -91,20 +91,26 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	identifier := r.FormValue("identifier")
-	password := r.FormValue("password")
+	var user struct {
+		Identifier string `json:"identifier"`
+		Password   string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		fmt.Println(err)
+		http.Error(w, "Error reading data", http.StatusInternalServerError)
+		return
+	}
 
 	var hashedPassword, username string
 	var userID int
-	fmt.Println(CurrentDate)
-	err := DB.QueryRow("SELECT id, password, nickname FROM users WHERE nickname = ? OR email = ?", identifier, identifier).Scan(&userID, &hashedPassword, &username)
+	err := DB.QueryRow("SELECT id, password, nickname FROM users WHERE nickname = ? OR email = ?", user.Identifier, user.Identifier).Scan(&userID, &hashedPassword, &username)
 	if err != nil {
 		log.Printf("Error querying user: %v", err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password))
 	if err != nil {
 		log.Printf("Password mismatch: %v", err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)

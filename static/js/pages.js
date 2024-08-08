@@ -68,12 +68,14 @@ export function loginPage() {
           <form id="login-form">
           <h2>Login</h2>
           <input
+            id="identifier"
             type="text"
             name="identifier"
             placeholder="Nickname or Email"
             required
           />
           <input
+            id="password"
             type="password"
             name="password"
             placeholder="Password"
