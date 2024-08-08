@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	rtf "rtf/routes"
+	rtf "rtf/server/routes"
 
 	_ "github.com/mattn/go-sqlite3"
 )

@@ -17,21 +17,25 @@ export async function getAllUsers() {
 }
 
 export async function getUserDetails(username) {
-  ws = new WebSocket('ws://localhost:8080/fetch_user_data');
-  ws.onopen = function () {
-    ws.send(JSON.stringify({ username: username }));
-  };
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket('ws://localhost:8080/fetch_user_data');
+    ws.onopen = function () {
+      ws.send(JSON.stringify({ username: username }));
+    };
 
-  ws.onmessage = function (event) {
-    const userDetails = JSON.parse(event.data);
-    console.log(userDetails);
-    // Update UI with user details
-    window.handleUserDetails(userDetails);
-  };
+    ws.onmessage = function (event) {
+      const userDetails = JSON.parse(event.data);
+      resolve(userDetails);
+    };
 
-  ws.onclose = function (error) {
-    console.log("WebSocket connection closed" + error);
-  };
+    ws.onerror = function (error) {
+      reject(error);
+    };
+
+    ws.onclose = function () {
+      console.log("WebSocket connection closed");
+    };
+  });
 }
 
 export async function getUserMessages(user) {
@@ -50,31 +54,70 @@ export async function getUserMessages(user) {
   }
 }
 
+// export function connectWebSocket() {
+//   const username = localStorage.getItem("username");
+//   ws = new WebSocket(`ws://localhost:8080/chat`);
+
+//   ws.onopen = function () {
+//     ws.send(JSON.stringify({ type: "init", sender: username }));
+//   };
+
+//   ws.onmessage = function (event) {
+//     const msg = JSON.parse(event.data);
+//     if (msg.error !== undefined) {
+//       console.error(msg.error);
+//     } else {
+//       console.log(msg);
+//       window.handleWebSocketMessage(msg);
+//     }
+//   };
+
+//   ws.onclose = function (error) {
+//     console.log("WebSocket connection closed" + error);
+//   };
+
+//   return ws;
+// }
+
 export function connectWebSocket() {
   const username = localStorage.getItem("username");
+  if (!username) {
+    console.error("Username not found in localStorage");
+    return;
+  }
+
   ws = new WebSocket(`ws://localhost:8080/chat`);
 
   ws.onopen = function () {
+    console.log("WebSocket connection opened");
     ws.send(JSON.stringify({ type: "init", sender: username }));
   };
+
+  ws.onerror = function (error) {
+    console.error("WebSocket error:", error);
+  };
+
 
   ws.onmessage = function (event) {
     const msg = JSON.parse(event.data);
     if (msg.error !== undefined) {
-      console.error(msg.error);
+      if (msg.error.includes("sql: no rows in result set")) {
+        console.warn("No data found for the query.");
+      } else {
+        console.error("WebSocket message error:", msg.error);
+      }
     } else {
-      console.log(msg);
+      console.log("WebSocket message received:", msg);
       window.handleWebSocketMessage(msg);
     }
   };
 
-  ws.onclose = function (error) {
-    console.log("WebSocket connection closed" + error);
+  ws.onclose = function (event) {
+    console.log("WebSocket connection closed:", event);
   };
 
   return ws;
 }
-
 export function sendMessage(message) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message));
@@ -90,7 +133,7 @@ export function sendMessage(message) {
 
 export function connectUserUpdateWebSocket() {
   console.log("hello")
-  userUpdateWs = new WebSocket('ws://localhost:8080/ws');
+  const userUpdateWs = new WebSocket('ws://localhost:8080/ws');
 
   userUpdateWs.onopen = function () {
     console.log("Connected to user update WebSocket");
@@ -102,8 +145,12 @@ export function connectUserUpdateWebSocket() {
     window.handleUserUpdate(update);
   };
 
-  userUpdateWs.onclose = function (error) {
-    console.log("User update WebSocket connection closed" + error);
+  userUpdateWs.onclose = function () {
+    console.log("User update WebSocket connection closed");
+  };
+
+  userUpdateWs.onerror = function (error) {
+    console.error("WebSocket error:", error);
   };
 
   return userUpdateWs;
