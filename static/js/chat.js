@@ -10,7 +10,12 @@ export async function getAllUsers() {
     }
 
     const data = await response.json();
-    return data;
+    const currentUser = localStorage.getItem("username");
+
+    // Filter out the current user
+    const filteredUsers = data.filter(user => user.username !== currentUser);
+
+    return filteredUsers;
   } catch (error) {
     console.log(error);
   }

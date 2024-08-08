@@ -197,6 +197,7 @@ export async function mainPage() {
   window.localStorage.setItem("currentPage", "main");
 }
 
+
 export async function messagePage() {
   const userStatus = await checkIfUserLoggedIn();
 
@@ -206,6 +207,7 @@ export async function messagePage() {
   }
 
   document.body.innerHTML = `
+  <div class="nav"></div>
     <div class="main-container">
       <div class="all-users" id="all-users"></div>
       <div class="selected-user" id="selected-users">
@@ -225,6 +227,23 @@ export async function messagePage() {
     </div>
   `;
 
+  if (userStatus) {
+    document.querySelector(".nav").innerHTML = `
+      <button id="logout-button">Logout</button>
+      <button id="chat">Home</div>
+      `;
+
+    document
+      .querySelector("#logout-button")
+      .addEventListener("click", async () => {
+        await logoutUser();
+        navigateTo(loginPage);
+      });
+
+    document.querySelector("#chat").addEventListener("click", () => {
+      navigateTo(mainPage);
+    });
+  }
   const messagesDiv = document.querySelector(".messages");
   const usersContainer = document.querySelector(".all-users");
   const data = {};
@@ -270,7 +289,7 @@ export async function messagePage() {
 
         selectedUsername.textContent = userDetails["username"];
 
-        if (userDetails["status"] === "ONLINE") {
+        if (userDetails["status"] === "ONLINE" && userStatus) {
           lastLoginContainer.textContent = "Online";
         } else {
           const lastLoginToDate = new Date(userDetails["last_login"]);

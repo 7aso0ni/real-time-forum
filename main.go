@@ -6,9 +6,9 @@ import (
 	"log"
 	"net/http"
 
-	rtf "rtf/server/routes"
-
 	_ "github.com/mattn/go-sqlite3"
+
+	rtf "rtf/server/routes"
 )
 
 func main() {
@@ -18,6 +18,12 @@ func main() {
 		log.Fatal(err)
 	}
 	defer rtf.DB.Close()
+
+	// Set all users to offline status
+	if err := SetAllUsersOffline(rtf.DB); err != nil {
+		log.Fatalf("Failed to set all users offline: %v", err)
+	}
+	
 	http.Handle("/", http.FileServer(http.Dir("./static")))
 
 	http.HandleFunc("/register", rtf.RegisterHandler)
@@ -36,4 +42,9 @@ func main() {
 
 	fmt.Println("Server started at :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func SetAllUsersOffline(db *sql.DB) error {
+	_, err := db.Exec("UPDATE users SET status = 'OFFLINE'")
+	return err
 }

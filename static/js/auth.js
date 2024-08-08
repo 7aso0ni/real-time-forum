@@ -90,12 +90,22 @@ export async function checkIfUserLoggedIn() {
       credentials: "include", // Ensure cookies are included in the request
     });
 
+    const userContainer = document.getElementById(`user-${localStorage.getItem("username")}`);
+    const statusContainer = userContainer ? userContainer.querySelector(".status") : null;
+
     if (response.status === 401) {
+      if (statusContainer) {
+        statusContainer.textContent = "OFFLINE";
+      }
       return false;
     }
 
     if (!response.ok) {
       throw new Error(await response.text());
+    }
+
+    if (statusContainer) {
+      statusContainer.textContent = "ONLINE";
     }
 
     return true;
