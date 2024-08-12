@@ -55,6 +55,7 @@ export async function loginUser() {
     }
 
     const body = await response.json();
+    console.log(body)
     localStorage.setItem("username", body.username);
     return true;
   } catch (error) {

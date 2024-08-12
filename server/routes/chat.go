@@ -36,7 +36,7 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// check if the type of connection is init
-		if msg.Type == "init" {
+		if msg.Type == "init" || msg.Type == "login" || msg.Type == "register" {
 			username = msg.Sender
 
 			// check if the username is provided with the request
@@ -49,7 +49,20 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 			MU.Lock()
 			ConnectedUsers[username] = conn
 			MU.Unlock()
+
+			// send a status update to the front-end
+			BroadcastUserUpdate("chat", username, "ONLINE")
 			continue
+		} else if msg.Type == "logout" {
+			MU.Lock()
+			delete(ConnectedUsers, username)
+			MU.Unlock()
+
+			// send a signal to the front-end that the user exited
+			BroadcastUserUpdate("chat", username, "OFFLINE")
+
+			// stop the loop after broadcasting
+			break
 		}
 
 		// check if the username is provided with the request after initializing

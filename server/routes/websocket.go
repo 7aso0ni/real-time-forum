@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -21,23 +22,37 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		if msg.Type == "register" || msg.Type == "login" || msg.Type == "logout" {
-			BroadcastUserUpdate(msg.Type, msg.Sender)
+		if msg.Type == "register" || msg.Type == "login" {
+			// append the connection to the map
+			MU.Lock()
+			ConnectedUsers[msg.Sender] = conn
+			MU.Unlock()
+
+			BroadcastUserUpdate(msg.Type, msg.Sender, "ONLINE")
+		} else if msg.Type == "logout" {
+			// if the type is logout remove the connection from the map
+			delete(ConnectedUsers, msg.Sender)
+			BroadcastUserUpdate(msg.Type, msg.Sender, "OFFLINE")
 		}
 	}
 }
 
-func BroadcastUserUpdate(updateType, username string) {
+func BroadcastUserUpdate(updateType, username string, newStatus string) {
 	MU.Lock()
 	defer MU.Unlock()
 
-	update := UserUpdate{
+	userUpdate := UserUpdate{
 		Type:     updateType,
 		Username: username,
+		Status:   newStatus,
 	}
 
+	fmt.Println(ConnectedUsers)
+
 	for _, conn := range ConnectedUsers {
-		if err := conn.WriteJSON(update); err != nil {
+		// check if an error occurred during the sending of the message
+		err := conn.WriteJSON(userUpdate)
+		if err != nil {
 			log.Println("Broadcast error:", err)
 			conn.Close()
 			// Remove disconnected user

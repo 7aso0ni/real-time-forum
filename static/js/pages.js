@@ -20,8 +20,6 @@ import {
   connectUserUpdateWebSocket,
 } from "./chat.js";
 
-const currentUser = localStorage.getItem("username");
-
 export function registerPage() {
   document.body.innerHTML = "";
 
@@ -88,6 +86,8 @@ export function loginPage() {
       </div>
   `;
 
+  const userUpdateWs = connectUserUpdateWebSocket();
+
   document.querySelector(".register-button").addEventListener("click", () => {
     navigateTo(registerPage);
   });
@@ -97,6 +97,12 @@ export function loginPage() {
     .addEventListener("submit", async (e) => {
       e.preventDefault();
       if (await loginUser()) {
+        const currentUser = localStorage.getItem("username");
+
+        console.log(currentUser);
+        userUpdateWs.send(
+          JSON.stringify({ type: "login", sender: currentUser })
+        );
         navigateTo(mainPage);
       }
     });
@@ -137,14 +143,17 @@ export async function mainPage() {
 
   const users = await getAllUsers();
   const userList = document.querySelector(".user-list");
+  const userUpdateWs = connectUserUpdateWebSocket();
+  const currentUser = localStorage.getItem("username");
+
   users.forEach(async (user) => {
     if (user === currentUser) {
       return;
     }
     const details = await getUserDetails(user);
-    console.log(details);
     const userContainer = document.createElement("div");
     userContainer.className = "user-container";
+    userContainer.setAttribute("data-username", details["username"]);
 
     const usernameContainer = document.createElement("div");
     usernameContainer.className = "username";
@@ -168,8 +177,12 @@ export async function mainPage() {
     document
       .querySelector("#logout-button")
       .addEventListener("click", async () => {
-        await logoutUser();
-        navigateTo(loginPage);
+        if (await logoutUser()) {
+          userUpdateWs.send(
+            JSON.stringify({ type: "logout", sender: currentUser })
+          );
+          navigateTo(loginPage);
+        }
       });
 
     document.querySelector("#chat").addEventListener("click", () => {
@@ -192,11 +205,8 @@ export async function mainPage() {
     createPost();
   });
 
-  connectUserUpdateWebSocket();
-
   window.localStorage.setItem("currentPage", "main");
 }
-
 
 export async function messagePage() {
   const userStatus = await checkIfUserLoggedIn();
@@ -227,6 +237,10 @@ export async function messagePage() {
     </div>
   `;
 
+  const currentUser = localStorage.getItem("username");
+  const userUpdateWs = connectUserUpdateWebSocket();
+  const connect = connectWebSocket()
+
   if (userStatus) {
     document.querySelector(".nav").innerHTML = `
       <button id="logout-button">Logout</button>
@@ -236,14 +250,20 @@ export async function messagePage() {
     document
       .querySelector("#logout-button")
       .addEventListener("click", async () => {
-        await logoutUser();
-        navigateTo(loginPage);
+        if (await logoutUser()) {
+          userUpdateWs.send(
+            JSON.stringify({ type: "logout", sender: currentUser })
+          );
+          connect.send(JSON.stringify({ type: "init", sender: currentUser }))
+          navigateTo(loginPage);
+        }
       });
 
     document.querySelector("#chat").addEventListener("click", () => {
       navigateTo(mainPage);
     });
   }
+
   const messagesDiv = document.querySelector(".messages");
   const usersContainer = document.querySelector(".all-users");
   const data = {};
@@ -253,9 +273,9 @@ export async function messagePage() {
   let currentIndex = 0;
   let loadingMore = false;
   let activeChatUser = null;
+  const users = await getAllUsers();
 
   async function initializeUsers() {
-    const users = await getAllUsers();
 
     const index = users.indexOf(currentUser);
 
@@ -269,6 +289,7 @@ export async function messagePage() {
 
       if (currentUser !== user) {
         userContainer.className = "user";
+        userContainer.setAttribute("data-username", userDetails["username"]);
 
         nameContainer.className = "user-name";
         statusContainer.className = "status";
@@ -347,6 +368,22 @@ export async function messagePage() {
   }
 
   window.handleWebSocketMessage = (message) => {
+    const username = message['username'];
+    const status = message['status'];
+
+    // Select the specific user div based on the data-username attribute
+    const userContainer = document.querySelector(`.user[data-username="${username}"]`);
+
+    if (userContainer) {
+        // Find the status div within the selected user div
+        const statusContainer = userContainer.querySelector(".status");
+        
+        if (statusContainer) {
+            // Update the status text content
+            statusContainer.textContent = status;
+        }
+    }
+
     if (
       (message.sender === activeChatUser && message.receiver === currentUser) ||
       (message.sender === currentUser && message.receiver === activeChatUser)
@@ -386,7 +423,6 @@ export async function messagePage() {
 
   await initializeUsers();
   connectWebSocket();
-  connectUserUpdateWebSocket();
 
   window.localStorage.setItem("currentPage", "chat");
 }
@@ -395,39 +431,3 @@ window.registerPage = registerPage;
 window.loginPage = loginPage;
 window.mainPage = mainPage;
 window.messagePage = messagePage;
-
-window.handleUserUpdate = function (update) {
-  const userList = document.querySelector(".user-list");
-  if (!userList) return;
-
-  if (update.type === "register" || update.type === "login") {
-    // Add or update user status in the list
-    let userContainer = document.getElementById(`user-${update.username}`);
-    if (!userContainer) {
-      userContainer = document.createElement("div");
-      userContainer.className = "user-container";
-      userContainer.id = `user-${update.username}`;
-
-      const usernameContainer = document.createElement("div");
-      usernameContainer.className = "username";
-      usernameContainer.textContent = update.username;
-
-      const statusContainer = document.createElement("div");
-      statusContainer.className = "status";
-      statusContainer.textContent = update.type === "login" ? "ONLINE" : "";
-
-      userContainer.append(usernameContainer, statusContainer);
-      userList.appendChild(userContainer);
-    } else {
-      const statusContainer = userContainer.querySelector(".status");
-      statusContainer.textContent = update.type === "login" ? "ONLINE" : "";
-    }
-  } else if (update.type === "logout") {
-    // Update user status to offline
-    const userContainer = document.getElementById(`user-${update.username}`);
-    if (userContainer) {
-      const statusContainer = userContainer.querySelector(".status");
-      statusContainer.textContent = "OFFLINE";
-    }
-  }
-};

@@ -80,9 +80,6 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
 	}
-
-	// Broadcast the registration update
-	BroadcastUserUpdate("register", user.Nickname)
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +97,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error reading data", http.StatusInternalServerError)
 		return
 	}
+
+	fmt.Println("ident: " + user.Identifier)
 
 	var hashedPassword, username string
 	var userID int
@@ -149,9 +148,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
 	}
-
-	// Broadcast the login update
-	BroadcastUserUpdate("login", username)
 }
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -206,9 +202,6 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("User logged out successfully")
 	w.WriteHeader(http.StatusOK)
-
-	// Broadcast the logout update
-	BroadcastUserUpdate("logout", username)
 }
 
 func GetUserIDFromSession(w http.ResponseWriter, r *http.Request) int {

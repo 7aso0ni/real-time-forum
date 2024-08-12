@@ -1,5 +1,5 @@
 let ws;
-let userUpdateWs;
+// let userUpdateWs;
 
 export async function getAllUsers() {
   try {
@@ -13,7 +13,7 @@ export async function getAllUsers() {
     const currentUser = localStorage.getItem("username");
 
     // Filter out the current user
-    const filteredUsers = data.filter(user => user.username !== currentUser);
+    const filteredUsers = data.filter((user) => user.username !== currentUser);
 
     return filteredUsers;
   } catch (error) {
@@ -23,7 +23,7 @@ export async function getAllUsers() {
 
 export async function getUserDetails(username) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket('ws://localhost:8080/fetch_user_data');
+    const ws = new WebSocket("ws://localhost:8080/fetch_user_data");
     ws.onopen = function () {
       ws.send(JSON.stringify({ username: username }));
     };
@@ -87,7 +87,7 @@ export async function getUserMessages(user) {
 export function connectWebSocket() {
   const username = localStorage.getItem("username");
   if (!username) {
-    console.error("Username not found in localStorage");
+    console.error("Username not found");
     return;
   }
 
@@ -101,7 +101,6 @@ export function connectWebSocket() {
   ws.onerror = function (error) {
     console.error("WebSocket error:", error);
   };
-
 
   ws.onmessage = function (event) {
     const msg = JSON.parse(event.data);
@@ -137,17 +136,16 @@ export function sendMessage(message) {
 }
 
 export function connectUserUpdateWebSocket() {
-  console.log("hello")
-  const userUpdateWs = new WebSocket('ws://localhost:8080/ws');
+  const userUpdateWs = new WebSocket("ws://localhost:8080/ws");
 
   userUpdateWs.onopen = function () {
-    console.log("Connected to user update WebSocket");
+    console.log("websocket connected");
   };
 
   userUpdateWs.onmessage = function (event) {
     const update = JSON.parse(event.data);
     console.log("User update received:", update);
-    window.handleUserUpdate(update);
+    updateUserStatusInDOM(update);
   };
 
   userUpdateWs.onclose = function () {
@@ -159,4 +157,21 @@ export function connectUserUpdateWebSocket() {
   };
 
   return userUpdateWs;
+}
+
+function updateUserStatusInDOM(update) {
+  const { username, status } = update;
+
+  const container =
+    document.querySelector(`.user-container[data-username="${username}"]`) ||
+    document.querySelector(`.user[data-username="${username}"]`);
+
+  if (container) {
+    // Update the status in the DOM
+    const statusContainer = container.querySelector(".status");
+    statusContainer.textContent = status;
+  } else {
+    // Optionally, handle cases where the user is not found in the DOM
+    console.warn(`User container for ${username} not found`);
+  }
 }

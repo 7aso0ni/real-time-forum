@@ -69,5 +69,6 @@ type ErrorMessage struct {
 
 type UserUpdate struct {
 	Type     string `json:"type"`
+	Status   string `json:"status"`
 	Username string `json:"username"`
 }

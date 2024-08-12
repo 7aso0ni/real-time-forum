@@ -81,11 +81,11 @@ body {
 
 /* ---------------message section--------------- */
 .main-container {
-  height: 100vh;
+  height: 90vh;
   display: flex;
   flex-direction: row;
   overflow: hidden;
-  }
+}
 
 .all-users {
   background-color: #ebebeb;
@@ -170,7 +170,7 @@ body {
 }
 
 .message-content {
-  font-size: 32px;
+  font-size: 27px;
   padding: 10px 25px;
 }
 
