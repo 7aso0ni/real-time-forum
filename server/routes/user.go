@@ -10,12 +10,41 @@ import (
 )
 
 func FetchUsersHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	rows, err := DB.Query("SELECT nickname FROM users")
+	var currentUser struct {
+		Username string `json:"username"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&currentUser); err != nil {
+		http.Error(w, "Error reading data", http.StatusInternalServerError)
+		return
+	}
+
+	// SQL query to fetch users ordered by last message time and online status
+	query := `
+		SELECT u.nickname 
+		FROM users u
+		LEFT JOIN (
+			SELECT 
+				sender_id AS user_id, 
+				MAX(created_at) AS last_message_time 
+			FROM private_messages 
+			GROUP BY sender_id
+		) pm ON u.id = pm.user_id
+		WHERE u.nickname != ?
+		ORDER BY 
+			COALESCE(pm.last_message_time, '1970-01-01 00:00:00') DESC, 
+			CASE u.status 
+				WHEN 'ONLINE' THEN 1 
+				ELSE 2 
+			END ASC;
+	`
+
+	rows, err := DB.Query(query, currentUser.Username)
 	if err != nil {
 		log.Printf("something went wrong: %v", err)
 		http.Error(w, "Error fetching users", http.StatusInternalServerError)
@@ -27,21 +56,22 @@ func FetchUsersHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var nickname string
 		if err := rows.Scan(&nickname); err != nil {
-			log.Printf("something went wrong: %v", err)
+			log.Printf("something went wrong during Scan: %v", err)
 			http.Error(w, "Error fetching users", http.StatusInternalServerError)
 			return
 		}
+
 		users = append(users, nickname)
 	}
 
-	// if any errors where encountered during the reading of the rows
+	// Check for any errors encountered during iteration
 	if err = rows.Err(); err != nil {
 		log.Printf("something went wrong: %v", err)
 		http.Error(w, "Error fetching users", http.StatusInternalServerError)
 		return
 	}
 
-	// convert the array into json and send it
+	// Convert the users slice into JSON and send it as a response
 	if err = json.NewEncoder(w).Encode(users); err != nil {
 		log.Printf("error sending json: %v", err)
 		http.Error(w, "something went wrong", http.StatusInternalServerError)

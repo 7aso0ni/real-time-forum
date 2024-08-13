@@ -2,20 +2,24 @@ let ws;
 // let userUpdateWs;
 
 export async function getAllUsers() {
+  const username = localStorage.getItem("username")
+
   try {
-    const response = await fetch("/fetch_users");
+    const response = await fetch("/fetch_users", {
+      method: "POST",
+      body: JSON.stringify({username})
+    });
     if (!response.ok) {
       const error = await response.text();
       throw new Error(error);
     }
 
     const data = await response.json();
-    const currentUser = localStorage.getItem("username");
 
     // Filter out the current user
-    const filteredUsers = data.filter((user) => user.username !== currentUser);
+    // const filteredUsers = data.filter((user) => user.username !== username);
 
-    return filteredUsers;
+    return data;
   } catch (error) {
     console.log(error);
   }
@@ -59,30 +63,24 @@ export async function getUserMessages(user) {
   }
 }
 
-// export function connectWebSocket() {
-//   const username = localStorage.getItem("username");
-//   ws = new WebSocket(`ws://localhost:8080/chat`);
+export async function getLastMessage(username) {
+  try {
+    const response = await fetch("/last_message", {
+      method: "POST",
+      body: JSON.stringify({ username })
+    })
 
-//   ws.onopen = function () {
-//     ws.send(JSON.stringify({ type: "init", sender: username }));
-//   };
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(error)
+    }
 
-//   ws.onmessage = function (event) {
-//     const msg = JSON.parse(event.data);
-//     if (msg.error !== undefined) {
-//       console.error(msg.error);
-//     } else {
-//       console.log(msg);
-//       window.handleWebSocketMessage(msg);
-//     }
-//   };
+    return await response.body()
 
-//   ws.onclose = function (error) {
-//     console.log("WebSocket connection closed" + error);
-//   };
-
-//   return ws;
-// }
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 export function connectWebSocket() {
   const username = localStorage.getItem("username");

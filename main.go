@@ -23,7 +23,7 @@ func main() {
 	if err := SetAllUsersOffline(rtf.DB); err != nil {
 		log.Fatalf("Failed to set all users offline: %v", err)
 	}
-	
+
 	http.Handle("/", http.FileServer(http.Dir("./static")))
 
 	http.HandleFunc("/register", rtf.RegisterHandler)
@@ -37,6 +37,7 @@ func main() {
 	http.HandleFunc("/fetch_users", rtf.FetchUsersHandler)
 	http.HandleFunc("/fetch_user_data", rtf.FetchUserDetails)
 	http.HandleFunc("/get_messages", rtf.GetMessages)
+	http.HandleFunc("last_message", rtf.GetLastUserMessage)
 	http.HandleFunc("/chat", rtf.ChatHandler)
 	http.HandleFunc("/ws", rtf.WsHandler)
 

@@ -1,5 +1,5 @@
 -- schema.sql
-CREATE TABLE users (
+CREATE TABLE "users" (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nickname TEXT UNIQUE,
     age INTEGER,
@@ -7,7 +7,9 @@ CREATE TABLE users (
     first_name TEXT,
     last_name TEXT,
     email TEXT UNIQUE,
-    password TEXT
+    password TEXT, 
+    status TEXT, 
+    last_login DATETIME
 );
 
 CREATE TABLE posts (

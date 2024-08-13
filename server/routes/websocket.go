@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 )
@@ -46,8 +45,6 @@ func BroadcastUserUpdate(updateType, username string, newStatus string) {
 		Username: username,
 		Status:   newStatus,
 	}
-
-	fmt.Println(ConnectedUsers)
 
 	for _, conn := range ConnectedUsers {
 		// check if an error occurred during the sending of the message

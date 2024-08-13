@@ -51,7 +51,6 @@ export async function createComment(postId) {
       throw new Error(error);
     }
 
-    alert("Comment created successfully!");
     fetchComments(postId); // Refresh comments
   } catch (error) {
     console.log(`Comment creation failed: ${error}`);
@@ -131,10 +130,38 @@ export function displayComments(postId, comments) {
 
 window.toggleComments = function (postId) {
   const commentsSection = document.getElementById(`comments-section-${postId}`);
+  const postsContainer = document.getElementById("posts");
+  const toggleButton = postsContainer.querySelector(`.main-button[onclick="toggleComments(${postId})"]`);
+
   if (commentsSection.style.display === "none") {
+    // Hide all posts except the one clicked
+    Array.from(postsContainer.children).forEach(post => {
+      if (!post.contains(commentsSection)) {
+        post.style.display = "none";
+      }
+    });
+
+    // Show the comments section
     commentsSection.style.display = "block";
     fetchComments(postId); // Fetch comments when the section is expanded
+
+    // Change button text to "Hide Comments"
+    if (toggleButton) {
+      toggleButton.textContent = "Hide Comments";
+    }
   } else {
+    // Show all posts when comments are hidden
+    Array.from(postsContainer.children).forEach(post => {
+      post.style.display = "block";
+    });
+
+    // Hide the comments section
     commentsSection.style.display = "none";
+
+    // Change button text back to "View Comments"
+    if (toggleButton) {
+      toggleButton.textContent = "View Comments";
+    }
   }
 };
+

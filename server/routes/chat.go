@@ -239,3 +239,49 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Something went wrong with sending the data", http.StatusInternalServerError)
 	}
 }
+
+func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var user struct {
+		Username string `json:"username"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		http.Error(w, "Error reading json data", http.StatusInternalServerError)
+		return
+	}
+
+	var lastMessage Message
+
+	// Query to get the most recent message sent by the user
+	query := `
+		SELECT sender, receiver, content, created_at 
+		FROM messages 
+		WHERE sender = ? OR receiver = ?
+		ORDER BY created_at DESC 
+		LIMIT 1`
+
+	err := DB.QueryRow(query, user.Username, user.Username).Scan(
+		&lastMessage.Sender,
+		&lastMessage.Receiver,
+		&lastMessage.Content,
+		&lastMessage.CreatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "No messages found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Error fetching last message", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(lastMessage); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+}

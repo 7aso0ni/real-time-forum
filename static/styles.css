@@ -1,6 +1,6 @@
 body {
   font-family: Arial, sans-serif;
-  background-color: #f0f0f0;
+  background-color: hsl(0, 0%, 94%);
   margin: 0;
   padding: 0;
   height: 100vh;
@@ -42,7 +42,7 @@ body {
 
 .main-content {
   overflow: hidden;
-  height: 100vh;
+  /* height: 100vh; */
   display: flex;
   width: 100%;
   border-radius: 8px;
@@ -160,18 +160,31 @@ body {
 }
 
 .message-author {
-  display: flex;
-  justify-content: end;
+  display: grid;
+  grid-template-columns: auto;
+  align-items: baseline;
+  justify-items: end;
 }
 
+
 .message-receiver {
-  display: flex;
-  justify-content: start;
+  display: grid;
+  grid-template-columns: auto;
+  align-items: baseline;
+  justify-items: start;
 }
 
 .message-content {
   font-size: 27px;
   padding: 10px 25px;
+}
+
+.message-author .timestamp {
+  margin-right: 10px;
+}
+
+.message-receiver .timestamp {
+  margin-left: 10px;
 }
 
 .message-author .message-content {
@@ -190,6 +203,12 @@ body {
   border-radius: 10px 10px 10px 0;
   background-color: lightgrey;
   word-wrap: break-word;
+}
+
+.timestamp {
+  font-size: 14px;
+  color: rgb(139, 139, 139);
+  max-width: 35%;
 }
 
 .message-section {
@@ -222,6 +241,14 @@ form {
   flex-direction: column;
 }
 
+textarea {
+  resize: vertical;
+  min-height: 40px;
+  max-height: 300px;
+}
+
+
+
 input,
 textarea {
   margin: 10px 0;
@@ -245,17 +272,32 @@ textarea {
   background-color: #0056b3;
 }
 
+.post {
+  background-color: #e9ecef;
+}
+
+.comment {
+  background-color: white;
+}
+
 .post,
 .comment {
-  background-color: #e9ecef;
   margin: 10px 0;
   padding: 10px;
   border-radius: 4px;
 }
 
+.post p{
+  word-wrap: break-word;
+}
+
+.post h3 {
+  word-wrap: break-word;
+}
+
 .comments-container {
   max-height: 300px;
-  overflow-y: scroll;
+  overflow-y: hidden;
 }
 
 .comments-section {

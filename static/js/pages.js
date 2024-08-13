@@ -18,6 +18,7 @@ import {
   getUserMessages,
   getUserDetails,
   connectUserUpdateWebSocket,
+  getLastMessage,
 } from "./chat.js";
 
 export function registerPage() {
@@ -126,7 +127,7 @@ export async function mainPage() {
           <div class="forum-container">
             <form id="post-form">
               <h2>Create Post</h2>
-              <input type="text" name="category" placeholder="Category" required />
+              <input type="text" maxlength="100" name="category" placeholder="Category" required />
               <textarea name="content" placeholder="Content" required></textarea>
               <button type="submit" class="main-button">Post</button>
             </form>
@@ -147,9 +148,6 @@ export async function mainPage() {
   const currentUser = localStorage.getItem("username");
 
   users.forEach(async (user) => {
-    if (user === currentUser) {
-      return;
-    }
     const details = await getUserDetails(user);
     const userContainer = document.createElement("div");
     userContainer.className = "user-container";
@@ -239,7 +237,7 @@ export async function messagePage() {
 
   const currentUser = localStorage.getItem("username");
   const userUpdateWs = connectUserUpdateWebSocket();
-  const connect = connectWebSocket()
+  const connect = connectWebSocket();
 
   if (userStatus) {
     document.querySelector(".nav").innerHTML = `
@@ -254,7 +252,7 @@ export async function messagePage() {
           userUpdateWs.send(
             JSON.stringify({ type: "logout", sender: currentUser })
           );
-          connect.send(JSON.stringify({ type: "init", sender: currentUser }))
+          connect.send(JSON.stringify({ type: "init", sender: currentUser }));
           navigateTo(loginPage);
         }
       });
@@ -273,53 +271,74 @@ export async function messagePage() {
   let currentIndex = 0;
   let loadingMore = false;
   let activeChatUser = null;
-  const users = await getAllUsers();
+  let users = [];
 
   async function initializeUsers() {
+    const allUsers = await getAllUsers();
+    const index = allUsers.indexOf(currentUser);
 
-    const index = users.indexOf(currentUser);
+    if (index > -1) allUsers.splice(index, 1);
 
-    if (index > -1) users.splice(index, 1);
-    users.forEach(async (user) => {
-      const userContainer = document.createElement("div");
-      const nameContainer = document.createElement("div");
-      const statusContainer = document.createElement("div");
+    users = [];
 
+    // Clear the existing users in the DOM to prevent duplication
+    usersContainer.innerHTML = "";
+
+    // Fetch last message timestamps and status for each user
+    for (const user of allUsers) {
       const userDetails = await getUserDetails(user);
+      const lastMessage = await getLastMessage(user); // Assume this function fetches the last message for the user
 
-      if (currentUser !== user) {
-        userContainer.className = "user";
-        userContainer.setAttribute("data-username", userDetails["username"]);
+      users.push({
+        username: user,
+        status: userDetails["status"],
+        lastLogin: userDetails["last_login"],
+        lastMessageTime: lastMessage ? new Date(lastMessage.created_at) : null,
+      });
+    }
 
-        nameContainer.className = "user-name";
-        statusContainer.className = "status";
-        nameContainer.textContent = user;
-        statusContainer.textContent = userDetails["status"];
-        userContainer.appendChild(nameContainer);
-        userContainer.appendChild(statusContainer);
+    // Clear the user container
+    usersContainer.innerHTML = "";
 
-        usersContainer.appendChild(userContainer);
-      }
+    // Re-render the users list
+    users.forEach((user) => {
+      console.log(user);
+      const userContainer = document.createElement("div");
+      userContainer.className = "user";
+      userContainer.setAttribute("data-username", user["username"]);
+
+      const nameContainer = document.createElement("div");
+      nameContainer.className = "user-name";
+      nameContainer.textContent = user["username"];
+
+      const statusContainer = document.createElement("div");
+      statusContainer.className = "status";
+      statusContainer.textContent = user["status"];
+
+      userContainer.appendChild(nameContainer);
+      userContainer.appendChild(statusContainer);
+
+      usersContainer.appendChild(userContainer);
 
       userContainer.addEventListener("click", async () => {
         currentIndex = 0;
-        activeChatUser = user;
+        activeChatUser = user["username"];
 
         const selectedUsername = document.querySelector(".selected-username");
         const lastLoginContainer = document.querySelector(".last-login");
 
-        selectedUsername.textContent = userDetails["username"];
+        selectedUsername.textContent = user["username"];
 
-        if (userDetails["status"] === "ONLINE" && userStatus) {
+        if (user["status"] === "ONLINE" && userStatus) {
           lastLoginContainer.textContent = "Online";
         } else {
-          const lastLoginToDate = new Date(userDetails["last_login"]);
+          const lastLoginToDate = new Date(user.lastLogin);
           lastLoginContainer.textContent = lastLoginToDate.toLocaleDateString();
         }
 
         isUserClicked = true;
-        data["receiver"] = user;
-        allMessages = await getUserMessages(user);
+        data["receiver"] = user["username"];
+        allMessages = await getUserMessages(user["username"]);
 
         if (allMessages === null) allMessages = [];
         allMessages.reverse();
@@ -347,15 +366,29 @@ export async function messagePage() {
   }
 
   function updateMessages(message, prepend = false) {
+    // don't display the sent/received message if the user didn't click on anyone
     if (!isUserClicked) return;
+
+    // format the date to the desired formatting way
+    const date = new Date(message.created_at);
+    const formatteDate = `${date.getDate()}/${date.getMonth() + 1}`;
+
     const messageContainer = document.createElement("div");
 
+    // create the div that will contain the text of the message
     const currentMessage = document.createElement("div");
     currentMessage.className = "message-content";
     currentMessage.textContent = message.content;
 
-    messageContainer.appendChild(currentMessage);
+    // div that will contain the timestamp of the message
+    const messageTimeStamp = document.createElement("div");
+    messageTimeStamp.className = "timestamp";
+    messageTimeStamp.textContent = formatteDate;
 
+    messageContainer.appendChild(currentMessage);
+    messageContainer.appendChild(messageTimeStamp);
+
+    // check if the sender is the current user or another user and have an appropirate classname
     message.sender === localStorage.getItem("username")
       ? (messageContainer.className = "message-author")
       : (messageContainer.className = "message-receiver");
@@ -368,20 +401,27 @@ export async function messagePage() {
   }
 
   window.handleWebSocketMessage = (message) => {
-    const username = message['username'];
-    const status = message['status'];
+    // initializeUsers()
+    const username = message["username"];
+    const status = message["status"];
 
     // Select the specific user div based on the data-username attribute
-    const userContainer = document.querySelector(`.user[data-username="${username}"]`);
+    const userContainer = document.querySelector(
+      `.user[data-username="${username}"]`
+    );
+
+    // re-sort the list of users when a message is sent
+    usersContainer.innerHTML = "";
+    initializeUsers();
 
     if (userContainer) {
-        // Find the status div within the selected user div
-        const statusContainer = userContainer.querySelector(".status");
-        
-        if (statusContainer) {
-            // Update the status text content
-            statusContainer.textContent = status;
-        }
+      // Find the status div within the selected user div
+      const statusContainer = userContainer.querySelector(".status");
+
+      if (statusContainer) {
+        // Update the status text content
+        statusContainer.textContent = status;
+      }
     }
 
     if (
