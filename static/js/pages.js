@@ -142,29 +142,69 @@ export async function mainPage() {
         </div>
   `;
 
-  const users = await getAllUsers();
-  const userList = document.querySelector(".user-list");
   const userUpdateWs = connectUserUpdateWebSocket();
   const currentUser = localStorage.getItem("username");
 
-  users.forEach(async (user) => {
-    const details = await getUserDetails(user);
-    const userContainer = document.createElement("div");
-    userContainer.className = "user-container";
-    userContainer.setAttribute("data-username", details["username"]);
+  window.sortAndRender = async function sortAndRender() {
+    const users = await getAllUsers();
+    const userList = document.querySelector(".user-list");
+    userList.innerHTML = "";
 
-    const usernameContainer = document.createElement("div");
-    usernameContainer.className = "username";
-    const statusContainer = document.createElement("div");
-    statusContainer.className = "status";
+    const userDetails = await Promise.all(
+      users.map(async (user) => {
+        const details = await getUserDetails(user);
+        const lastMessage = await getLastMessage(user);
 
-    usernameContainer.textContent = details["username"];
-    statusContainer.textContent = details["status"];
+        return {
+          username: user,
+          status: details.status,
+          lastLogin: details.last_login,
+          lastMessageTime: lastMessage
+            ? new Date(lastMessage["created_at"])
+            : null,
+        };
+      })
+    );
 
-    userContainer.append(usernameContainer, statusContainer);
+    userDetails.sort((a, b) => {
+      // First, sort by online status
+      if (a.status === "ONLINE" && b.status !== "ONLINE") return -1;
+      if (a.status !== "ONLINE" && b.status === "ONLINE") return 1;
 
-    userList.appendChild(userContainer);
-  });
+      // If both users have the same online status, sort by lastMessageTime (most recent first)
+      if (a.lastMessageTime && b.lastMessageTime) {
+        return b.lastMessageTime - a.lastMessageTime;
+      }
+
+      // If one has a lastMessageTime and the other doesn't, the one with a message goes first
+      if (a.lastMessageTime) return -1;
+      if (b.lastMessageTime) return 1;
+
+      // Otherwise, maintain their original order
+      return 0;
+    });
+
+    console.log(userDetails);
+
+    userDetails.forEach(async (user) => {
+      // const details = await getUserDetails(user);
+      const userContainer = document.createElement("div");
+      userContainer.className = "user-container";
+      userContainer.setAttribute("data-username", user["username"]);
+
+      const usernameContainer = document.createElement("div");
+      usernameContainer.className = "username";
+      const statusContainer = document.createElement("div");
+      statusContainer.className = "status";
+
+      usernameContainer.textContent = user["username"];
+      statusContainer.textContent = user["status"];
+
+      userContainer.append(usernameContainer, statusContainer);
+
+      userList.appendChild(userContainer);
+    });
+  };
 
   if (isLoggedIn) {
     document.querySelector(".nav").innerHTML = `
@@ -202,6 +242,8 @@ export async function mainPage() {
     e.preventDefault();
     createPost();
   });
+
+  sortAndRender();
 
   window.localStorage.setItem("currentPage", "main");
 }
@@ -271,37 +313,50 @@ export async function messagePage() {
   let currentIndex = 0;
   let loadingMore = false;
   let activeChatUser = null;
-  let users = [];
 
   async function initializeUsers() {
-    const allUsers = await getAllUsers();
-    const index = allUsers.indexOf(currentUser);
-
-    if (index > -1) allUsers.splice(index, 1);
-
-    users = [];
-
-    // Clear the existing users in the DOM to prevent duplication
     usersContainer.innerHTML = "";
+    const allUsers = await getAllUsers();
 
-    // Fetch last message timestamps and status for each user
-    for (const user of allUsers) {
-      const userDetails = await getUserDetails(user);
-      const lastMessage = await getLastMessage(user); // Assume this function fetches the last message for the user
+    const userDetails = await Promise.all(
+      allUsers.map(async (user) => {
+        const details = await getUserDetails(user);
+        const lastMessage = await getLastMessage(user);
 
-      users.push({
-        username: user,
-        status: userDetails["status"],
-        lastLogin: userDetails["last_login"],
-        lastMessageTime: lastMessage ? new Date(lastMessage.created_at) : null,
-      });
-    }
+        return {
+          username: user,
+          status: details.status,
+          lastLogin: details.last_login,
+          lastMessageTime: lastMessage
+            ? new Date(lastMessage["created_at"])
+            : null,
+        };
+      })
+    );
 
-    // Clear the user container
+    userDetails.sort((a, b) => {
+      // First, sort by online status
+      if (a.status === "ONLINE" && b.status !== "ONLINE") return -1;
+      if (a.status !== "ONLINE" && b.status === "ONLINE") return 1;
+
+      // If both users have the same online status, sort by lastMessageTime (most recent first)
+      if (a.lastMessageTime && b.lastMessageTime) {
+        return b.lastMessageTime - a.lastMessageTime;
+      }
+
+      // If one has a lastMessageTime and the other doesn't, the one with a message goes first
+      if (a.lastMessageTime) return -1;
+      if (b.lastMessageTime) return 1;
+
+      // Otherwise, maintain their original order
+      return 0;
+    });
+
+    // Clear and re-render the users list
     usersContainer.innerHTML = "";
 
     // Re-render the users list
-    users.forEach((user) => {
+    userDetails.forEach((user) => {
       console.log(user);
       const userContainer = document.createElement("div");
       userContainer.className = "user";
@@ -400,19 +455,18 @@ export async function messagePage() {
     }
   }
 
-  window.handleWebSocketMessage = (message) => {
+  window.handleWebSocketMessage = async (message) => {
     // initializeUsers()
     const username = message["username"];
     const status = message["status"];
+
+    // re-sort the list of users when a message is sent
+    await initializeUsers();
 
     // Select the specific user div based on the data-username attribute
     const userContainer = document.querySelector(
       `.user[data-username="${username}"]`
     );
-
-    // re-sort the list of users when a message is sent
-    usersContainer.innerHTML = "";
-    initializeUsers();
 
     if (userContainer) {
       // Find the status div within the selected user div

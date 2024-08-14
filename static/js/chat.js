@@ -1,13 +1,14 @@
 let ws;
 // let userUpdateWs;
+// import { sortAndRender } from "./pages.js";
 
 export async function getAllUsers() {
-  const username = localStorage.getItem("username")
+  const username = localStorage.getItem("username");
 
   try {
     const response = await fetch("/fetch_users", {
       method: "POST",
-      body: JSON.stringify({username})
+      body: JSON.stringify({ username }),
     });
     if (!response.ok) {
       const error = await response.text();
@@ -67,18 +68,20 @@ export async function getLastMessage(username) {
   try {
     const response = await fetch("/last_message", {
       method: "POST",
-      body: JSON.stringify({ username })
-    })
+      body: JSON.stringify({ username }),
+    });
 
     if (!response.ok) {
-      const error = await response.text()
-      throw new Error(error)
+      const error = await response.text();
+      // ignore this message
+      if (error === "No messages found") return null;
+
+      throw new Error(`${error} for ${username}`);
     }
 
-    return await response.body()
-
+    return await response.json();
   } catch (error) {
-    console.log(error)
+    console.error(error);
   }
 }
 
@@ -140,9 +143,10 @@ export function connectUserUpdateWebSocket() {
     console.log("websocket connected");
   };
 
-  userUpdateWs.onmessage = function (event) {
+  userUpdateWs.onmessage = async (event) => {
     const update = JSON.parse(event.data);
     console.log("User update received:", update);
+    window.sortAndRender();
     updateUserStatusInDOM(update);
   };
 

@@ -255,23 +255,31 @@ func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the id from the username passed
+	var userID int
+	if err := DB.QueryRow("SELECT id FROM users WHERE nickname = ?", user.Username).Scan(&userID); err != nil {
+		http.Error(w, "Error getting user data", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Println(userID)
+
 	var lastMessage Message
 
 	// Query to get the most recent message sent by the user
 	query := `
-		SELECT sender, receiver, content, created_at 
-		FROM messages 
-		WHERE sender = ? OR receiver = ?
+		SELECT content, created_at 
+		FROM private_messages 
+		WHERE sender_id = ?OR receiver_id = ? 
 		ORDER BY created_at DESC 
 		LIMIT 1`
 
-	err := DB.QueryRow(query, user.Username, user.Username).Scan(
-		&lastMessage.Sender,
-		&lastMessage.Receiver,
+	err := DB.QueryRow(query, userID, userID).Scan(
 		&lastMessage.Content,
 		&lastMessage.CreatedAt,
 	)
 	if err != nil {
+		fmt.Println(err)
 		if err == sql.ErrNoRows {
 			http.Error(w, "No messages found", http.StatusNotFound)
 		} else {
@@ -279,6 +287,8 @@ func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	fmt.Println(lastMessage)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(lastMessage); err != nil {
