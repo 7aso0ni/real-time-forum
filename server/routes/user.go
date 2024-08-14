@@ -2,8 +2,6 @@ package routes
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -46,7 +44,7 @@ func FetchUsersHandler(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := DB.Query(query, currentUser.Username)
 	if err != nil {
-		log.Printf("something went wrong: %v", err)
+
 		http.Error(w, "Error fetching users", http.StatusInternalServerError)
 		return
 	}
@@ -56,7 +54,6 @@ func FetchUsersHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var nickname string
 		if err := rows.Scan(&nickname); err != nil {
-			log.Printf("something went wrong during Scan: %v", err)
 			http.Error(w, "Error fetching users", http.StatusInternalServerError)
 			return
 		}
@@ -66,14 +63,12 @@ func FetchUsersHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check for any errors encountered during iteration
 	if err = rows.Err(); err != nil {
-		log.Printf("something went wrong: %v", err)
 		http.Error(w, "Error fetching users", http.StatusInternalServerError)
 		return
 	}
 
 	// Convert the users slice into JSON and send it as a response
 	if err = json.NewEncoder(w).Encode(users); err != nil {
-		log.Printf("error sending json: %v", err)
 		http.Error(w, "something went wrong", http.StatusInternalServerError)
 		return
 	}
@@ -101,7 +96,7 @@ func FetchUserDetails(w http.ResponseWriter, r *http.Request) {
 
 		// Read message from WebSocket client
 		if err := conn.ReadJSON(&message); err != nil {
-			fmt.Println("Error reading json.", err)
+			http.Error(w, "Error reading data", http.StatusInternalServerError)
 			return
 		}
 
@@ -114,14 +109,13 @@ func FetchUserDetails(w http.ResponseWriter, r *http.Request) {
 
 		// Get the important info of the selected user
 		if err := DB.QueryRow("SELECT nickname, status, last_login FROM users WHERE id = ?", userID).Scan(&receiverInfo.Username, &receiverInfo.Status, &receiverInfo.LastLogin); err != nil {
-			fmt.Println(err)
 			http.Error(w, "Error getting receiver data", http.StatusInternalServerError)
 			return
 		}
 
 		// Send the user details back to the WebSocket client
 		if err := conn.WriteJSON(receiverInfo); err != nil {
-			fmt.Println("Error sending json.", err)
+			http.Error(w, "Error sending data", http.StatusInternalServerError)
 			return
 		}
 	}

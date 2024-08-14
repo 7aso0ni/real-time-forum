@@ -14,7 +14,7 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 
 	userID := GetUserIDFromSession(w, r)
 	if userID == -1 {
-		log.Println("User not authenticated")
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
@@ -28,7 +28,6 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Post created successfully by user:", userID)
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -40,7 +39,7 @@ func CommentPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	userID := GetUserIDFromSession(w, r)
 	if userID == -1 {
-		log.Println("User not authenticated")
+		http.Error(w, "Error creating post", http.StatusInternalServerError)
 		return
 	}
 
@@ -49,12 +48,10 @@ func CommentPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err := DB.Exec("INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)", postID, userID, content)
 	if err != nil {
-		log.Printf("Error commenting post: %v", err)
 		http.Error(w, "Error commenting post", http.StatusInternalServerError)
 		return
 	}
 
-	log.Println("Comment created successfully by user:", userID)
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -71,7 +68,6 @@ func FetchPostsHandler(w http.ResponseWriter, r *http.Request) {
         ORDER BY p.created_at DESC
     `)
 	if err != nil {
-		log.Printf("Error fetching posts: %v", err)
 		http.Error(w, "Error fetching posts", http.StatusInternalServerError)
 		return
 	}
@@ -89,14 +85,12 @@ func FetchPostsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Printf("Error with rows: %v", err)
 		http.Error(w, "Error with rows", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(posts); err != nil {
-		log.Printf("Error encoding posts: %v", err)
 		http.Error(w, "Error encoding posts", http.StatusInternalServerError)
 	}
 }

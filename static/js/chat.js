@@ -147,7 +147,7 @@ export function connectUserUpdateWebSocket() {
     const update = JSON.parse(event.data);
     console.log("User update received:", update);
     window.sortAndRender();
-    updateUserStatusInDOM(update);
+    // updateUserStatusInDOM(update);
   };
 
   userUpdateWs.onclose = function () {
@@ -161,19 +161,19 @@ export function connectUserUpdateWebSocket() {
   return userUpdateWs;
 }
 
-function updateUserStatusInDOM(update) {
-  const { username, status } = update;
+// function updateUserStatusInDOM(update) {
+//   const { username, status } = update;
 
-  const container =
-    document.querySelector(`.user-container[data-username="${username}"]`) ||
-    document.querySelector(`.user[data-username="${username}"]`);
+//   const container =
+//     document.querySelector(`.user-container[data-username="${username}"]`) ||
+//     document.querySelector(`.user[data-username="${username}"]`);
 
-  if (container) {
-    // Update the status in the DOM
-    const statusContainer = container.querySelector(".status");
-    statusContainer.textContent = status;
-  } else {
-    // Optionally, handle cases where the user is not found in the DOM
-    console.warn(`User container for ${username} not found`);
-  }
-}
+//   if (container) {
+//     // Update the status in the DOM
+//     const statusContainer = container.querySelector(".status");
+//     statusContainer.textContent = status;
+//   } else {
+//     // Optionally, handle cases where the user is not found in the DOM
+//     console.warn(`User container for ${username} not found`);
+//   }
+// }

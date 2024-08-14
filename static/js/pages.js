@@ -4,12 +4,7 @@ import {
   logoutUser,
   checkIfUserLoggedIn,
 } from "./auth.js";
-import {
-  createPost,
-  displayComments,
-  fetchComments,
-  fetchPosts,
-} from "./post.js";
+import { createPost, fetchPosts } from "./post.js";
 import { navigateTo } from "./history.js";
 import {
   getAllUsers,
@@ -25,36 +20,51 @@ export function registerPage() {
   document.body.innerHTML = "";
 
   document.body.innerHTML = `
-        <div class="register-content">
-            <form id="register-form">
-                <h2>Register</h2>
-                <input type="text" name="nickname" placeholder="Nickname" required />
-                <input type="number" name="age" placeholder="Age" required />
-                <input type="text" name="gender" placeholder="Gender" required />
-                <input type="text" name="first_name" placeholder="First Name" required />
-                <input type="text" name="last_name" placeholder="Last Name" required />
-                <input type="email" name="email" placeholder="Email" required />
-                <input type="password" name="password" placeholder="Password" required />
-                <button type="submit">Register</button>
-            </form>
-
-            <button class="login-button">Go to login</button>
+      <div class="form">
+        <div class="login-page">
+        <div class="error-message">
+          <div class="error-text"></div>
+          <div class="close-btn">&times;</div>
         </div>
+
+          <form class="register-form" method="POST">
+            <h2>Register</h2>
+            <div class="name">
+              <input type="text" id="first-name" placeholder="First Name *" required />
+              <input type="text" id="last-name" placeholder="Last Name *" required />
+            </div>
+            <input type="number" id="age" placeholder="Age *" required />
+            <select class="gender" id="gender">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+            <input type="text" id="username" placeholder="Username *" required />
+            <input type="email" id="email" placeholder="Email *" required />
+            <input type="password" id="password" placeholder="Password *" required />
+            <a class="btn">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              Create
+            </a>
+            <span class="message">Already registered? <a class="signin-button">Sign In</a></span>
+          </form>
+        </div>
+      </div>
     `;
 
-  document.querySelector(".login-button").addEventListener("click", () => {
+  document.querySelector(".signin-button").addEventListener("click", () => {
     navigateTo(loginPage);
   });
 
-  document
-    .querySelector("#register-form")
-    .addEventListener("submit", async (e) => {
-      e.preventDefault();
+  document.querySelector(".btn").addEventListener("click", async (e) => {
+    e.preventDefault();
 
-      if (await registerUser()) {
-        navigateTo(mainPage);
-      }
-    });
+    if (await registerUser()) {
+      navigateTo(mainPage);
+    }
+  });
 
   window.localStorage.setItem("currentPage", "register");
 }
@@ -63,39 +73,44 @@ export function loginPage() {
   document.body.innerHTML = "";
 
   document.body.innerHTML = `
-        <div class="login-content">
-          <form id="login-form">
+        <div class="login-box">
+        <div class="error-message">
+          <div class="error-text"></div>
+          <div class="close-btn">&times;</div>
+        </div>
           <h2>Login</h2>
-          <input
-            id="identifier"
-            type="text"
-            name="identifier"
-            placeholder="Nickname or Email"
-            required
-          />
-          <input
-            id="password"
-            type="password"
-            name="password"
-            placeholder="Password"
-            required
-          />
-          <button type="submit">Login</button>
-        </form>
-
-        <button class="register-button">Go to register</button>
-      </div>
+          <form id="login-form">
+            <div class="user-box">
+              <input id="identifier" type="text" name="" required>
+              <label>Username</label>
+            </div>
+            <div class="user-box">
+              <input id="password" type="password" name="" required>
+              <label>Password</label>
+            </div>
+            <a class="submit-link">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              Login
+            </a>
+            <span class="register-container">
+              Don't have an account? register <a class="register-link">here</a>
+            </span>
+          </form>
+        </div>
   `;
 
   const userUpdateWs = connectUserUpdateWebSocket();
 
-  document.querySelector(".register-button").addEventListener("click", () => {
+  document.querySelector(".register-link").addEventListener("click", () => {
     navigateTo(registerPage);
   });
 
   document
-    .querySelector("#login-form")
-    .addEventListener("submit", async (e) => {
+    .querySelector(".submit-link")
+    .addEventListener("click", async (e) => {
       e.preventDefault();
       if (await loginUser()) {
         const currentUser = localStorage.getItem("username");
@@ -122,7 +137,7 @@ export async function mainPage() {
   document.body.innerHTML = "";
   document.body.innerHTML = `
         <div class="nav"></div>
-  
+
         <div class="main-content">
           <div class="forum-container">
             <form id="post-form">
@@ -167,24 +182,25 @@ export async function mainPage() {
     );
 
     userDetails.sort((a, b) => {
-      // First, sort by online status
-      if (a.status === "ONLINE" && b.status !== "ONLINE") return -1;
-      if (a.status !== "ONLINE" && b.status === "ONLINE") return 1;
+      // If one has a lastMessageTime and the other doesn't, the one with a message goes first
+      // if (a.lastMessageTime) return -1;
+      // if (b.lastMessageTime) return 1;
 
       // If both users have the same online status, sort by lastMessageTime (most recent first)
       if (a.lastMessageTime && b.lastMessageTime) {
         return b.lastMessageTime - a.lastMessageTime;
       }
 
-      // If one has a lastMessageTime and the other doesn't, the one with a message goes first
-      if (a.lastMessageTime) return -1;
-      if (b.lastMessageTime) return 1;
+      // First, sort by online status
+      if (a.status === "ONLINE" && b.status !== "ONLINE") return -1;
+      if (a.status !== "ONLINE" && b.status === "ONLINE") return 1;
 
       // Otherwise, maintain their original order
       return 0;
     });
 
     console.log(userDetails);
+    userList.innerHTML = "";
 
     userDetails.forEach(async (user) => {
       // const details = await getUserDetails(user);
@@ -243,7 +259,7 @@ export async function mainPage() {
     createPost();
   });
 
-  sortAndRender();
+  window.sortAndRender();
 
   window.localStorage.setItem("currentPage", "main");
 }
@@ -258,6 +274,8 @@ export async function messagePage() {
 
   document.body.innerHTML = `
   <div class="nav"></div>
+
+  <div class="background">
     <div class="main-container">
       <div class="all-users" id="all-users"></div>
       <div class="selected-user" id="selected-users">
@@ -275,6 +293,7 @@ export async function messagePage() {
           </form>
       </div>
     </div>
+  </div>
   `;
 
   const currentUser = localStorage.getItem("username");
@@ -284,7 +303,7 @@ export async function messagePage() {
   if (userStatus) {
     document.querySelector(".nav").innerHTML = `
       <button id="logout-button">Logout</button>
-      <button id="chat">Home</div>
+      <button id="home">Home</div>
       `;
 
     document
@@ -299,7 +318,8 @@ export async function messagePage() {
         }
       });
 
-    document.querySelector("#chat").addEventListener("click", () => {
+    document.querySelector("#home").addEventListener("click", () => {
+      userUpdateWs.send(JSON.stringify({ type: "login", sender: currentUser }));
       navigateTo(mainPage);
     });
   }
@@ -335,18 +355,18 @@ export async function messagePage() {
     );
 
     userDetails.sort((a, b) => {
-      // First, sort by online status
-      if (a.status === "ONLINE" && b.status !== "ONLINE") return -1;
-      if (a.status !== "ONLINE" && b.status === "ONLINE") return 1;
-
       // If both users have the same online status, sort by lastMessageTime (most recent first)
       if (a.lastMessageTime && b.lastMessageTime) {
         return b.lastMessageTime - a.lastMessageTime;
       }
 
       // If one has a lastMessageTime and the other doesn't, the one with a message goes first
-      if (a.lastMessageTime) return -1;
-      if (b.lastMessageTime) return 1;
+      // if (a.lastMessageTime) return -1;
+      // if (b.lastMessageTime) return 1;
+
+      // First, sort by online status
+      if (a.status === "ONLINE" && b.status !== "ONLINE") return -1;
+      if (a.status !== "ONLINE" && b.status === "ONLINE") return 1;
 
       // Otherwise, maintain their original order
       return 0;
@@ -378,6 +398,7 @@ export async function messagePage() {
       userContainer.addEventListener("click", async () => {
         currentIndex = 0;
         activeChatUser = user["username"];
+        isUserClicked = true;
 
         const selectedUsername = document.querySelector(".selected-username");
         const lastLoginContainer = document.querySelector(".last-login");
@@ -391,7 +412,6 @@ export async function messagePage() {
           lastLoginContainer.textContent = lastLoginToDate.toLocaleDateString();
         }
 
-        isUserClicked = true;
         data["receiver"] = user["username"];
         allMessages = await getUserMessages(user["username"]);
 
@@ -426,7 +446,7 @@ export async function messagePage() {
 
     // format the date to the desired formatting way
     const date = new Date(message.created_at);
-    const formatteDate = `${date.getDate()}/${date.getMonth() + 1}`;
+    const formatDate = `${date.getDate()}/${date.getMonth() + 1}`;
 
     const messageContainer = document.createElement("div");
 
@@ -438,7 +458,7 @@ export async function messagePage() {
     // div that will contain the timestamp of the message
     const messageTimeStamp = document.createElement("div");
     messageTimeStamp.className = "timestamp";
-    messageTimeStamp.textContent = formatteDate;
+    messageTimeStamp.textContent = formatDate;
 
     messageContainer.appendChild(currentMessage);
     messageContainer.appendChild(messageTimeStamp);

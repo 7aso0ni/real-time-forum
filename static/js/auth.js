@@ -1,15 +1,26 @@
 export async function registerUser() {
-  const formData = new FormData(document.getElementById("register-form"));
-  const data = {};
-  formData.forEach((value, key) => {
-    if (key === "age") data[key] = parseInt(value, 10);
-    // if the field is age convert the value to a number
-    else data[key] = value;
-  });
+  const formData = {
+    firstName: document.getElementById("first-name").value,
+    lastName: document.getElementById("last-name").value,
+    age: Number(document.getElementById("age").value),
+    gender: document.getElementById("gender").value,
+    nickname: document.getElementById("username").value,
+    email: document.getElementById("email").value,
+    password: document.getElementById("password").value,
+  };
 
-  const jsonData = JSON.stringify(data);
+  const jsonData = JSON.stringify(formData);
 
   try {
+    // validators
+    if (!formData.firstName) throw new Error("First name can't be empty");
+    if (!formData.lastName) throw new Error("Last name can't be empty");
+    if (!formData.email) throw new Error("Email can't be empty");
+    if (!formData.password) throw new Error("Password can't be empty");
+    if (formData.age <= 0) throw new Error("Invalid age");
+    if (formData.gender !== "Male" || formData.gender !== "Female")
+      throw new Error("You are gay");
+
     const response = await fetch("/register", {
       method: "POST",
       headers: {
@@ -28,16 +39,25 @@ export async function registerUser() {
 
     return true;
   } catch (error) {
-    console.error("Registration error:", error);
+    const errorMessageContainer = document.querySelector(".error-message");
+    errorMessageContainer.style.display = "flex";
+
+    const errorMessageText = document.querySelector(".error-text");
+    errorMessageText.textContent = error;
+
+    document.querySelector(".close-btn").addEventListener("click", () => {
+      errorMessageContainer.style.display = "none";
+    });
+
     return false;
   }
 }
 
 export async function loginUser() {
-  const identifier = document.querySelector("#identifier").value
-  const password = document.querySelector("#password").value
+  const identifier = document.querySelector("#identifier").value;
+  const password = document.querySelector("#password").value;
 
-  const jsonData = JSON.stringify({identifier, password});
+  const jsonData = JSON.stringify({ identifier, password });
 
   try {
     const response = await fetch("/login", {
@@ -55,11 +75,20 @@ export async function loginUser() {
     }
 
     const body = await response.json();
-    console.log(body)
+    console.log(body);
     localStorage.setItem("username", body.username);
     return true;
   } catch (error) {
-    console.error("Login error:", error);
+    const errorMessageContainer = document.querySelector(".error-message");
+    errorMessageContainer.style.display = "flex";
+
+    const errorMessageText = document.querySelector(".error-text");
+    errorMessageText.textContent = error;
+
+    document.querySelector(".close-btn").addEventListener("click", () => {
+      errorMessageContainer.style.display = "none";
+    });
+
     return false;
   }
 }
@@ -91,8 +120,12 @@ export async function checkIfUserLoggedIn() {
       credentials: "include", // Ensure cookies are included in the request
     });
 
-    const userContainer = document.getElementById(`user-${localStorage.getItem("username")}`);
-    const statusContainer = userContainer ? userContainer.querySelector(".status") : null;
+    const userContainer = document.getElementById(
+      `user-${localStorage.getItem("username")}`
+    );
+    const statusContainer = userContainer
+      ? userContainer.querySelector(".status")
+      : null;
 
     if (response.status === 401) {
       if (statusContainer) {

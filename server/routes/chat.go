@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,7 +13,6 @@ import (
 func ChatHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := Upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Print("Upgrade:", err)
 		return
 	}
 	var username string
@@ -31,7 +29,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		var msg Message
 		err := conn.ReadJSON(&msg)
 		if err != nil {
-			log.Println("Read:", err)
 			break
 		}
 
@@ -86,7 +83,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		var senderID, receiverID int
 		for result := range ch {
 			if result.Err != nil {
-				log.Println("Error fetching user ID:", result.Err)
 				conn.WriteJSON(ErrorMessage{Error: result.Err.Error()})
 				return
 			}
@@ -100,7 +96,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 
 		// after removing all spaces check if the message is empty
 		if strings.TrimSpace(msg.Content) == "" {
-			log.Println("Message can't be empty")
 			conn.WriteJSON(ErrorMessage{Error: "Message can't be empty"})
 			continue
 		}
@@ -108,7 +103,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		// set the data provided to the database
 		_, err = DB.Exec("INSERT INTO private_messages (sender_id, receiver_id, content) VALUES (?, ?, ?)", senderID, receiverID, msg.Content)
 		if err != nil {
-			log.Println("Error inserting message:", err)
 			conn.WriteJSON(ErrorMessage{Error: "Error inserting message"})
 			break
 		}
@@ -121,7 +115,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 
 		err = conn.WriteJSON(msg)
 		if err != nil {
-			log.Printf("Write: %v", err)
 			break
 		}
 		// check if the user exist in the map
@@ -129,7 +122,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 			// send the message contents to the specified user
 			err = receiverConn.WriteJSON(msg)
 			if err != nil {
-				log.Println("Write:", err)
 				break
 			}
 		}
@@ -173,7 +165,6 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 	// Loop through the result channel
 	for result := range ch {
 		if result.Err != nil {
-			log.Println("Error fetching user ID:", result.Err)
 			http.Error(w, "Something went wrong", http.StatusInternalServerError)
 			return
 		}
@@ -210,14 +201,12 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 		// scan the values into the declared variables
 		err := rows.Scan(&senderID, &receiverID, &currentMessage.Content, &timeInStr)
 		if err != nil {
-			fmt.Println(err)
 			http.Error(w, "Couldn't retrieve messages", http.StatusInternalServerError)
 			return
 		}
 
 		currentMessage.CreatedAt, err = time.Parse(time.RFC3339, timeInStr)
 		if err != nil {
-			fmt.Println(err)
 			http.Error(w, "Error parsing time", http.StatusInternalServerError)
 			return
 		}
@@ -279,7 +268,6 @@ func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
 		&lastMessage.CreatedAt,
 	)
 	if err != nil {
-		fmt.Println(err)
 		if err == sql.ErrNoRows {
 			http.Error(w, "No messages found", http.StatusNotFound)
 		} else {
@@ -287,8 +275,6 @@ func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	fmt.Println(lastMessage)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(lastMessage); err != nil {
