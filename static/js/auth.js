@@ -18,8 +18,8 @@ export async function registerUser() {
     if (!formData.email) throw new Error("Email can't be empty");
     if (!formData.password) throw new Error("Password can't be empty");
     if (formData.age <= 0) throw new Error("Invalid age");
-    if (formData.gender !== "Male" || formData.gender !== "Female")
-      throw new Error("You are gay");
+    // if (formData.gender !== "Male" || formData.gender !== "Female")
+    //   throw new Error("You are gay");
 
     const response = await fetch("/register", {
       method: "POST",
