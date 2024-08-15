@@ -92,7 +92,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("ident: " + user.Identifier)
 
 	var hashedPassword, username string
 	var userID int

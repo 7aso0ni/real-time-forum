@@ -96,26 +96,26 @@ func FetchUserDetails(w http.ResponseWriter, r *http.Request) {
 
 		// Read message from WebSocket client
 		if err := conn.ReadJSON(&message); err != nil {
-			http.Error(w, "Error reading data", http.StatusInternalServerError)
+			conn.WriteJSON(map[string]string{"error": "Error reading data"})			
 			return
 		}
 
 		// Get the id from the username passed
 		var userID int
 		if err := DB.QueryRow("SELECT id FROM users WHERE nickname = ?", message.Username).Scan(&userID); err != nil {
-			http.Error(w, "Error getting user data", http.StatusInternalServerError)
+			conn.WriteJSON(map[string]string{"error": "Error getting user data"})
 			return
 		}
 
 		// Get the important info of the selected user
 		if err := DB.QueryRow("SELECT nickname, status, last_login FROM users WHERE id = ?", userID).Scan(&receiverInfo.Username, &receiverInfo.Status, &receiverInfo.LastLogin); err != nil {
-			http.Error(w, "Error getting receiver data", http.StatusInternalServerError)
+			conn.WriteJSON(map[string]string{"error": "Error getting receiver data"})
 			return
 		}
 
 		// Send the user details back to the WebSocket client
 		if err := conn.WriteJSON(receiverInfo); err != nil {
-			http.Error(w, "Error sending data", http.StatusInternalServerError)
+			conn.WriteJSON(map[string]string{"error": "Error sending data"})
 			return
 		}
 	}

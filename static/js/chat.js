@@ -1,5 +1,5 @@
 let ws;
-// let userUpdateWs;
+let userUpdateWs;
 // import { sortAndRender } from "./pages.js";
 
 export async function getAllUsers() {
@@ -105,6 +105,7 @@ export function connectWebSocket() {
 
   ws.onmessage = function (event) {
     const msg = JSON.parse(event.data);
+
     if (msg.error !== undefined) {
       if (msg.error.includes("sql: no rows in result set")) {
         console.warn("No data found for the query.");
@@ -112,7 +113,6 @@ export function connectWebSocket() {
         console.error("WebSocket message error:", msg.error);
       }
     } else {
-      console.log("WebSocket message received:", msg);
       window.handleWebSocketMessage(msg);
     }
   };
@@ -123,10 +123,11 @@ export function connectWebSocket() {
 
   return ws;
 }
+
 export function sendMessage(message) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message));
-    console.log(message);
+    // console.log(message);
     return;
   }
 
@@ -137,7 +138,7 @@ export function sendMessage(message) {
 }
 
 export function connectUserUpdateWebSocket() {
-  const userUpdateWs = new WebSocket("ws://localhost:8080/ws");
+  userUpdateWs = new WebSocket("ws://localhost:8080/ws");
 
   userUpdateWs.onopen = function () {
     console.log("websocket connected");
@@ -145,7 +146,15 @@ export function connectUserUpdateWebSocket() {
 
   userUpdateWs.onmessage = async (event) => {
     const update = JSON.parse(event.data);
+    const currentUser = localStorage.getItem("username");
     console.log("User update received:", update);
+
+    // if it's a message and not an update on a user status
+    if (update.content) {
+      console.log(update);
+      if (update.receiver === currentUser)
+        showNotification(update.sender, update.content);
+    }
     window.sortAndRender();
     // updateUserStatusInDOM(update);
   };
@@ -161,19 +170,20 @@ export function connectUserUpdateWebSocket() {
   return userUpdateWs;
 }
 
-// function updateUserStatusInDOM(update) {
-//   const { username, status } = update;
+function showNotification(sender, messageContent) {
+  const notif = document.querySelector(".notification");
+  notif.style.display = "block";
 
-//   const container =
-//     document.querySelector(`.user-container[data-username="${username}"]`) ||
-//     document.querySelector(`.user[data-username="${username}"]`);
+  const senderName = document.querySelector(".sender-name");
+  const content = document.querySelector(".message-content");
 
-//   if (container) {
-//     // Update the status in the DOM
-//     const statusContainer = container.querySelector(".status");
-//     statusContainer.textContent = status;
-//   } else {
-//     // Optionally, handle cases where the user is not found in the DOM
-//     console.warn(`User container for ${username} not found`);
-//   }
-// }
+  senderName.textContent = sender;
+  // cut the message and display a portion of it in the notification
+  content.textContent = messageContent.slice(0, 20) + "...";
+
+  setTimeout(() => {
+    notif.style.display = "none";
+    senderName.textContent = "";
+    content.textContent = "";
+  }, 3000);
+}

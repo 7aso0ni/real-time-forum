@@ -3,7 +3,6 @@ package routes
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -251,7 +250,6 @@ func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(userID)
 
 	var lastMessage Message
 

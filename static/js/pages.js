@@ -137,6 +137,10 @@ export async function mainPage() {
   document.body.innerHTML = "";
   document.body.innerHTML = `
         <div class="nav"></div>
+        <div class="notification">
+          <div class="sender-name"></div>
+          <div class="message-content"></div>
+        </div>
 
         <div class="main-content">
           <div class="forum-container">
@@ -157,8 +161,8 @@ export async function mainPage() {
         </div>
   `;
 
-  const userUpdateWs = connectUserUpdateWebSocket();
   const currentUser = localStorage.getItem("username");
+  const userUpdateWs = connectUserUpdateWebSocket();
 
   window.sortAndRender = async function sortAndRender() {
     const users = await getAllUsers();
@@ -260,7 +264,6 @@ export async function mainPage() {
   });
 
   window.sortAndRender();
-
   window.localStorage.setItem("currentPage", "main");
 }
 
@@ -274,6 +277,10 @@ export async function messagePage() {
 
   document.body.innerHTML = `
   <div class="nav"></div>
+  <div class="notification">
+    <div class="sender-name"></div>
+    <div class="message-content"></div>
+  </div>
 
   <div class="background">
     <div class="main-container">
@@ -377,7 +384,6 @@ export async function messagePage() {
 
     // Re-render the users list
     userDetails.forEach((user) => {
-      console.log(user);
       const userContainer = document.createElement("div");
       userContainer.className = "user";
       userContainer.setAttribute("data-username", user["username"]);
@@ -505,7 +511,29 @@ export async function messagePage() {
       updateMessages(message);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
+
+    if (message.receiver === currentUser) {
+      showNotification(message.sender, message.content);
+    }
   };
+
+  function showNotification(sender, messageContent) {
+    const notif = document.querySelector(".notification");
+    notif.style.display = "block";
+
+    const senderName = document.querySelector(".sender-name");
+    const content = document.querySelector(".message-content");
+
+    senderName.textContent = sender;
+    // cut the message and display a portion of it in the notification
+    content.textContent = messageContent.slice(0, 20) + "...";
+
+    setTimeout(() => {
+      notif.style.display = "none";
+      senderName.textContent = "";
+      content.textContent = "";
+    }, 3000);
+  }
 
   messagesDiv.addEventListener("scroll", async () => {
     if (
