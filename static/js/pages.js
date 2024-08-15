@@ -54,6 +54,8 @@ export function registerPage() {
       </div>
     `;
 
+  const userUpdateWs = connectUserUpdateWebSocket();
+
   document.querySelector(".signin-button").addEventListener("click", () => {
     navigateTo(loginPage);
   });
@@ -62,6 +64,10 @@ export function registerPage() {
     e.preventDefault();
 
     if (await registerUser()) {
+      const currentUser = document.querySelector("#username");
+      userUpdateWs.send(
+        JSON.stringify({ type: "register", sender: currentUser })
+      );
       navigateTo(mainPage);
     }
   });
@@ -113,9 +119,9 @@ export function loginPage() {
     .addEventListener("click", async (e) => {
       e.preventDefault();
       if (await loginUser()) {
-        const currentUser = localStorage.getItem("username");
-
+        const currentUser = document.querySelector("#identifier").value;
         console.log(currentUser);
+
         userUpdateWs.send(
           JSON.stringify({ type: "login", sender: currentUser })
         );
