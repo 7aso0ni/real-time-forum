@@ -16,6 +16,8 @@ import {
   getLastMessage,
 } from "./chat.js";
 
+import { debounce, cleanupPage } from "./utils.js";
+
 export function registerPage() {
   document.body.innerHTML = "";
 
@@ -135,10 +137,10 @@ export function loginPage() {
 export async function mainPage() {
   const isLoggedIn = await checkIfUserLoggedIn();
 
-  if (!isLoggedIn) {
-    window.localStorage.setItem("currentPage", "login");
-    window.location.reload();
-  }
+  // if (!isLoggedIn) {
+  //   window.localStorage.setItem("currentPage", "login");
+  //   window.location.reload();
+  // }
 
   document.body.innerHTML = "";
   document.body.innerHTML = `
@@ -168,7 +170,9 @@ export async function mainPage() {
   `;
 
   const currentUser = localStorage.getItem("username");
+
   const userUpdateWs = connectUserUpdateWebSocket();
+  connectWebSocket();
 
   window.sortAndRender = async function sortAndRender() {
     const users = await getAllUsers();
@@ -209,7 +213,6 @@ export async function mainPage() {
       return 0;
     });
 
-    console.log(userDetails);
     userList.innerHTML = "";
 
     userDetails.forEach(async (user) => {
@@ -234,8 +237,8 @@ export async function mainPage() {
 
   if (isLoggedIn) {
     document.querySelector(".nav").innerHTML = `
-    <button id="logout-button">Logout</button>
-    <button id="chat">Chat</div>
+    <button id="logout-button" disabled>Logout</button>
+    <button id="chat" disabled>Chat</div>
     `;
 
     document
@@ -245,13 +248,18 @@ export async function mainPage() {
           userUpdateWs.send(
             JSON.stringify({ type: "logout", sender: currentUser })
           );
+          cleanupPage(userUpdateWs, null);
           navigateTo(loginPage);
         }
       });
 
-    document.querySelector("#chat").addEventListener("click", () => {
-      navigateTo(messagePage);
-    });
+    document.querySelector("#chat").addEventListener(
+      "click",
+      debounce(() => {
+        cleanupPage(userUpdateWs, null);
+        navigateTo(messagePage);
+      }, 100)
+    );
   } else {
     document.querySelector(
       ".nav"
@@ -269,7 +277,9 @@ export async function mainPage() {
     createPost();
   });
 
-  window.sortAndRender();
+  await window.sortAndRender();
+  document.getElementById("logout-button").disabled = false;
+  document.getElementById("chat").disabled = false;
   window.localStorage.setItem("currentPage", "main");
 }
 
@@ -319,22 +329,30 @@ export async function messagePage() {
       <button id="home">Home</div>
       `;
 
-    document
-      .querySelector("#logout-button")
-      .addEventListener("click", async () => {
+    document.querySelector("#logout-button").addEventListener(
+      "click",
+      debounce(async () => {
         if (await logoutUser()) {
           userUpdateWs.send(
             JSON.stringify({ type: "logout", sender: currentUser })
           );
           connect.send(JSON.stringify({ type: "init", sender: currentUser }));
+          // cleanupPage(userUpdateWs, connect);
           navigateTo(loginPage);
         }
-      });
+      }, 100)
+    );
 
-    document.querySelector("#home").addEventListener("click", () => {
-      userUpdateWs.send(JSON.stringify({ type: "login", sender: currentUser }));
-      navigateTo(mainPage);
-    });
+    document.querySelector("#home").addEventListener(
+      "click",
+      debounce(() => {
+        userUpdateWs.send(
+          JSON.stringify({ type: "login", sender: currentUser })
+        );
+        // cleanupPage(userUpdateWs, connect);
+        navigateTo(mainPage);
+      }, 100)
+    );
   }
 
   const messagesDiv = document.querySelector(".messages");
@@ -531,8 +549,10 @@ export async function messagePage() {
     const content = document.querySelector(".message-content");
 
     senderName.textContent = sender;
+    if (messageContent.length < 20)
+      content.textContent = messageContent.slice(0, 20);
     // cut the message and display a portion of it in the notification
-    content.textContent = messageContent.slice(0, 20) + "...";
+    else content.textContent = messageContent.slice(0, 20) + "...";
 
     setTimeout(() => {
       notif.style.display = "none";
@@ -571,6 +591,9 @@ export async function messagePage() {
 
   await initializeUsers();
   connectWebSocket();
+
+  document.getElementById("logout-button").disabled = false;
+  document.getElementById("home").disabled = false;
 
   window.localStorage.setItem("currentPage", "chat");
 }

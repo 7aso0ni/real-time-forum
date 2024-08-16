@@ -1,5 +1,5 @@
 let ws;
-let userUpdateWs;
+
 // import { sortAndRender } from "./pages.js";
 
 export async function getAllUsers() {
@@ -27,25 +27,24 @@ export async function getAllUsers() {
 }
 
 export async function getUserDetails(username) {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket("ws://localhost:8080/fetch_user_data");
-    ws.onopen = function () {
-      ws.send(JSON.stringify({ username: username }));
-    };
+  try {
+    const response = await fetch(`/fetch_user_data`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username: username }),
+    });
 
-    ws.onmessage = function (event) {
-      const userDetails = JSON.parse(event.data);
-      resolve(userDetails);
-    };
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-    ws.onerror = function (error) {
-      reject(error);
-    };
-
-    ws.onclose = function () {
-      console.log("WebSocket connection closed");
-    };
-  });
+    const userDetails = await response.json();
+    return userDetails;
+  } catch (error) {
+    throw new Error(`Failed to fetch user details: ${error.message}`);
+  }
 }
 
 export async function getUserMessages(user) {
@@ -86,6 +85,9 @@ export async function getLastMessage(username) {
 }
 
 export function connectWebSocket() {
+  // // close the previous connection before opening a new one
+  // if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+
   const username = localStorage.getItem("username");
   if (!username) {
     console.error("Username not found");
@@ -138,7 +140,10 @@ export function sendMessage(message) {
 }
 
 export function connectUserUpdateWebSocket() {
-  userUpdateWs = new WebSocket("ws://localhost:8080/ws");
+  // if (userUpdateWs && userUpdateWs.readyState === WebSocket.OPEN)
+  //   userUpdateWs.close();
+
+  const userUpdateWs = new WebSocket("ws://localhost:8080/ws");
 
   userUpdateWs.onopen = function () {
     console.log("websocket connected");
@@ -178,8 +183,10 @@ function showNotification(sender, messageContent) {
   const content = document.querySelector(".message-content");
 
   senderName.textContent = sender;
+  if (messageContent.length < 20)
+    content.textContent = messageContent.slice(0, 20);
   // cut the message and display a portion of it in the notification
-  content.textContent = messageContent.slice(0, 20) + "...";
+  else content.textContent = messageContent.slice(0, 20) + "...";
 
   setTimeout(() => {
     notif.style.display = "none";
