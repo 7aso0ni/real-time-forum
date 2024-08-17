@@ -85,6 +85,10 @@ body {
   border: 1px solid #fc4356; /* Darker red border */
 }
 
+.register-form h2 {
+  color: white;
+}
+
 .close-btn {
   cursor: pointer;
 }

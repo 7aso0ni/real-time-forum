@@ -35,7 +35,7 @@ export function registerPage() {
               <input type="text" id="first-name" placeholder="First Name *" required />
               <input type="text" id="last-name" placeholder="Last Name *" required />
             </div>
-            <input type="number" id="age" placeholder="Age *" required />
+            <input type="number" id="age" placeholder="Age *" min="1" required />
             <select class="gender" id="gender">
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -122,7 +122,6 @@ export function loginPage() {
       e.preventDefault();
       if (await loginUser()) {
         const currentUser = document.querySelector("#identifier").value;
-        console.log(currentUser);
 
         userUpdateWs.send(
           JSON.stringify({ type: "login", sender: currentUser })
@@ -280,6 +279,7 @@ export async function mainPage() {
   document.getElementById("logout-button").disabled = false;
   document.getElementById("chat").disabled = false;
 
+  // when the user refreshes re-connect the websocket connection
   userUpdateWs.send(JSON.stringify({type: "init", sender: currentUser}))
 
   window.localStorage.setItem("currentPage", "main");
@@ -368,6 +368,9 @@ export async function messagePage() {
   let loadingMore = false;
   let activeChatUser = null;
 
+  // hide the message form when the user is not clicked
+  document.querySelector(".message-section").style.display = "none"
+
   async function initializeUsers() {
     usersContainer.innerHTML = "";
     const allUsers = await getAllUsers();
@@ -432,6 +435,9 @@ export async function messagePage() {
         currentIndex = 0;
         activeChatUser = user["username"];
         isUserClicked = true;
+
+        // re-display the message forms
+        document.querySelector(".message-section").style.display = "flex"
 
         const selectedUsername = document.querySelector(".selected-username");
         const lastLoginContainer = document.querySelector(".last-login");

@@ -171,7 +171,6 @@ export function connectUserUpdateWebSocket() {
   userUpdateWs.onmessage = async (event) => {
     const update = JSON.parse(event.data);
     const currentUser = localStorage.getItem("username");
-    console.log("User update received:", update);
 
     // if it's a message and not an update on a user status
     if (update.content) {

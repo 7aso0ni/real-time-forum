@@ -12,15 +12,6 @@ export async function registerUser() {
   const jsonData = JSON.stringify(formData);
 
   try {
-    // validators
-    if (!formData.firstName) throw new Error("First name can't be empty");
-    if (!formData.lastName) throw new Error("Last name can't be empty");
-    if (!formData.email) throw new Error("Email can't be empty");
-    if (!formData.password) throw new Error("Password can't be empty");
-    if (formData.age <= 0) throw new Error("Invalid age");
-    // if (formData.gender !== "Male" || formData.gender !== "Female")
-    //   throw new Error("You are gay");
-
     const response = await fetch("/register", {
       method: "POST",
       headers: {
@@ -75,7 +66,6 @@ export async function loginUser() {
     }
 
     const body = await response.json();
-    console.log(body);
     localStorage.setItem("username", body.username);
     return true;
   } catch (error) {

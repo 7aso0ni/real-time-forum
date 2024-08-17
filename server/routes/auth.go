@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,8 +21,22 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	var user *User
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if strings.TrimSpace(user.FirstName) == "" || strings.TrimSpace(user.LastName) == "" || strings.TrimSpace(user.Email) == "" || strings.TrimSpace(user.Gender) == "" || strings.TrimSpace(user.Nickname) == "" || strings.TrimSpace(user.Password) == "" {
+		http.Error(w, "All fields need to be provided", http.StatusBadRequest)
+		return
+	}
+
+	if user.Age <= 1 {
+		http.Error(w, "Invalid age", http.StatusBadRequest)
+		return
+	}
+
+	if user.Gender != "Male" && user.Gender != "Female" {
+		http.Error(w, "Don't be gay", http.StatusBadRequest)
 		return
 	}
 
@@ -86,12 +101,17 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		Identifier string `json:"identifier"`
 		Password   string `json:"password"`
 	}
+
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		fmt.Println(err)
 		http.Error(w, "Error reading data", http.StatusInternalServerError)
 		return
 	}
 
+	if strings.TrimSpace(user.Identifier) == "" || strings.TrimSpace(user.Password) == "" {
+		http.Error(w, "Please fill in all the fields", http.StatusBadRequest)
+		return
+	}
 
 	var hashedPassword, username string
 	var userID int

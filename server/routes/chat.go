@@ -119,7 +119,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		// check if the user exist in the map
-		log.Println(isOnline)
 		if isOnline {
 			// send the message contents to the specified user
 			err = receiverConn.WriteJSON(msg)
