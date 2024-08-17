@@ -21,7 +21,9 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		if msg.Type == "register" || msg.Type == "login" {
+		log.Println("ws handler: " + msg.Type)
+
+		if msg.Type == "register" || msg.Type == "login" || msg.Type == "init" {
 			// append the connection to the map
 			MU.Lock()
 			ConnectedUsers[msg.Sender] = conn
@@ -45,6 +47,8 @@ func BroadcastUserUpdate(updateType, username string, newStatus string) {
 		Username: username,
 		Status:   newStatus,
 	}
+
+	log.Println(ConnectedUsers)
 
 	for _, conn := range ConnectedUsers {
 		// check if an error occurred during the sending of the message

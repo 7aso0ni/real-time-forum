@@ -3,6 +3,7 @@ package routes
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -33,6 +34,7 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 
 		// check if the type of connection is init
 		if msg.Type == "init" || msg.Type == "login" || msg.Type == "register" {
+			log.Println(msg.Type)
 			username = msg.Sender
 
 			// check if the username is provided with the request
@@ -117,6 +119,7 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		// check if the user exist in the map
+		log.Println(isOnline)
 		if isOnline {
 			// send the message contents to the specified user
 			err = receiverConn.WriteJSON(msg)
@@ -249,7 +252,6 @@ func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error getting user data", http.StatusInternalServerError)
 		return
 	}
-
 
 	var lastMessage Message
 

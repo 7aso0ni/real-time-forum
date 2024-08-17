@@ -1,4 +1,5 @@
 let ws;
+let userUpdateWs;
 
 // import { sortAndRender } from "./pages.js";
 
@@ -85,8 +86,17 @@ export async function getLastMessage(username) {
 }
 
 export function connectWebSocket() {
-  // // close the previous connection before opening a new one
-  // if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+  if (ws) {
+    if (
+      ws.readyState === WebSocket.OPEN ||
+      ws.readyState === WebSocket.CONNECTING
+    ) {
+      console.log("WebSocket already open or connecting");
+      return ws;
+    }
+    // Ensure old WebSocket is closed before opening a new one
+    ws.close();
+  }
 
   const username = localStorage.getItem("username");
   if (!username) {
@@ -140,10 +150,19 @@ export function sendMessage(message) {
 }
 
 export function connectUserUpdateWebSocket() {
-  // if (userUpdateWs && userUpdateWs.readyState === WebSocket.OPEN)
-  //   userUpdateWs.close();
+  if (userUpdateWs) {
+    if (
+      userUpdateWs.readyState === WebSocket.OPEN ||
+      userUpdateWs.readyState === WebSocket.CONNECTING
+    ) {
+      console.log("UserUpdate WebSocket already open or connecting");
+      return userUpdateWs;
+    }
+    // Ensure old WebSocket is closed before opening a new one
+    userUpdateWs.close();
+  }
 
-  const userUpdateWs = new WebSocket("ws://localhost:8080/ws");
+  userUpdateWs = new WebSocket("ws://localhost:8080/ws");
 
   userUpdateWs.onopen = function () {
     console.log("websocket connected");
@@ -156,12 +175,10 @@ export function connectUserUpdateWebSocket() {
 
     // if it's a message and not an update on a user status
     if (update.content) {
-      console.log(update);
       if (update.receiver === currentUser)
         showNotification(update.sender, update.content);
     }
     window.sortAndRender();
-    // updateUserStatusInDOM(update);
   };
 
   userUpdateWs.onclose = function () {

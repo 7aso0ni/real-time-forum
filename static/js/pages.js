@@ -172,7 +172,6 @@ export async function mainPage() {
   const currentUser = localStorage.getItem("username");
 
   const userUpdateWs = connectUserUpdateWebSocket();
-  connectWebSocket();
 
   window.sortAndRender = async function sortAndRender() {
     const users = await getAllUsers();
@@ -280,6 +279,9 @@ export async function mainPage() {
   await window.sortAndRender();
   document.getElementById("logout-button").disabled = false;
   document.getElementById("chat").disabled = false;
+
+  userUpdateWs.send(JSON.stringify({type: "init", sender: currentUser}))
+
   window.localStorage.setItem("currentPage", "main");
 }
 
@@ -336,7 +338,7 @@ export async function messagePage() {
           userUpdateWs.send(
             JSON.stringify({ type: "logout", sender: currentUser })
           );
-          connect.send(JSON.stringify({ type: "init", sender: currentUser }));
+
           // cleanupPage(userUpdateWs, connect);
           navigateTo(loginPage);
         }
@@ -349,6 +351,7 @@ export async function messagePage() {
         userUpdateWs.send(
           JSON.stringify({ type: "login", sender: currentUser })
         );
+        connect.send(JSON.stringify({ type: "init", sender: currentUser }));
         // cleanupPage(userUpdateWs, connect);
         navigateTo(mainPage);
       }, 100)
@@ -493,7 +496,7 @@ export async function messagePage() {
     messageContainer.appendChild(currentMessage);
     messageContainer.appendChild(messageTimeStamp);
 
-    // check if the sender is the current user or another user and have an appropirate classname
+    // check if the sender is the current user or another user and have an appropriate classname
     message.sender === localStorage.getItem("username")
       ? (messageContainer.className = "message-author")
       : (messageContainer.className = "message-receiver");
