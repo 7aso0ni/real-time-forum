@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -36,7 +35,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 
 		// check if the type of connection is init
 		if msg.Type == "init" || msg.Type == "login" || msg.Type == "register" {
-			log.Println(msg.Type)
 			username = msg.Sender
 
 			// check if the username is provided with the request
@@ -324,7 +322,7 @@ func MessageIsRead(sender string, receiver string) error {
 		return err
 	}
 
-	if _, err := DB.Exec(`UPDATE private_messages SET is_read='READ' WHERE sender_id = ? AND receiver_id = ?;`, senderID, receiverID); err != nil {
+	if _, err := DB.Exec(`UPDATE private_messages SET is_read='READ' WHERE sender_id = ? AND receiver_id = ? OR sender_id = ? AND receiver_id = ?;`, senderID, receiverID, receiverID, senderID); err != nil {
 		fmt.Println(err)
 		return errors.New("failed to update message state")
 	}

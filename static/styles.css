@@ -631,6 +631,7 @@ select::-ms-expand {
 }
 
 .message-content {
+  word-break: break-word;
   font-size: 27px;
   padding: 10px 25px;
 }
@@ -751,7 +752,7 @@ textarea {
 
 .comments-container {
   max-height: 300px;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 
 .comments-section {

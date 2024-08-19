@@ -386,10 +386,10 @@ export async function messagePage() {
       allUsers.map(async (user) => {
         const details = await getUserDetails(user);
         const lastMessage = await getLastMessage(user);
-        console.log(lastMessage)
+
         return {
           username: user,
-          receiver: lastMessage ? lastMessage['receiver'] : null,
+          receiver: lastMessage ? lastMessage["receiver"] : null,
           status: details.status,
           lastLogin: details.last_login,
           state: lastMessage ? lastMessage["is_read"] : null,
@@ -417,7 +417,6 @@ export async function messagePage() {
       return 0;
     });
 
-    console.log(userDetails)
 
     // Clear and re-render the users list
     usersContainer.innerHTML = "";
@@ -452,8 +451,16 @@ export async function messagePage() {
         currentIndex = 0;
         activeChatUser = user["username"];
         isUserClicked = true;
-        // send that the message is read
+        // send that all of the messages are read
         userUpdateWs.send(
+          JSON.stringify({
+            type: "read",
+            sender: currentUser,
+            receiver: user.username,
+          })
+        );
+
+        connect.send(
           JSON.stringify({
             type: "read",
             sender: currentUser,
@@ -463,9 +470,9 @@ export async function messagePage() {
 
         // remove the unread indicator if it exists
         if (messageCircle) {
-          nameContainer.removeChild(messageCircle)
-          messageCircle = null
-        };
+          nameContainer.removeChild(messageCircle);
+          messageCircle = null;
+        }
 
         // re-display the message forms
         document.querySelector(".message-section").style.display = "flex";
@@ -629,7 +636,6 @@ export async function messagePage() {
   });
 
   await initializeUsers();
-  connectWebSocket();
 
   document.getElementById("logout-button").disabled = false;
   document.getElementById("home").disabled = false;
