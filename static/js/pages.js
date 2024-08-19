@@ -136,10 +136,10 @@ export function loginPage() {
 export async function mainPage() {
   const isLoggedIn = await checkIfUserLoggedIn();
 
-  // if (!isLoggedIn) {
-  //   window.localStorage.setItem("currentPage", "login");
-  //   window.location.reload();
-  // }
+  if (!isLoggedIn) {
+    window.localStorage.setItem("currentPage", "login");
+    window.location.reload();
+  }
 
   document.body.innerHTML = "";
   document.body.innerHTML = `
@@ -186,6 +186,7 @@ export async function mainPage() {
           username: user,
           status: details.status,
           lastLogin: details.last_login,
+          state: lastMessage ? lastMessage["is_read"] : null,
           lastMessageTime: lastMessage
             ? new Date(lastMessage["created_at"])
             : null,
@@ -194,18 +195,17 @@ export async function mainPage() {
     );
 
     userDetails.sort((a, b) => {
-      // If one has a lastMessageTime and the other doesn't, the one with a message goes first
-      // if (a.lastMessageTime) return -1;
-      // if (b.lastMessageTime) return 1;
-
       // If both users have the same online status, sort by lastMessageTime (most recent first)
       if (a.lastMessageTime && b.lastMessageTime) {
         return b.lastMessageTime - a.lastMessageTime;
       }
 
-      // First, sort by online status
-      if (a.status === "ONLINE" && b.status !== "ONLINE") return -1;
-      if (a.status !== "ONLINE" && b.status === "ONLINE") return 1;
+      if (a.lastMessageTime) return -1;
+      if (b.lastMessageTime) return 1;
+
+      // sort by username alphabetically
+      if (a.username.toLowerCase() < b.username.toLowerCase()) return -1;
+      if (a.username.toLowerCase() > b.username.toLowerCase()) return 1;
 
       // Otherwise, maintain their original order
       return 0;
@@ -221,6 +221,7 @@ export async function mainPage() {
 
       const usernameContainer = document.createElement("div");
       usernameContainer.className = "username";
+
       const statusContainer = document.createElement("div");
       statusContainer.className = "status";
 
@@ -228,6 +229,12 @@ export async function mainPage() {
       statusContainer.textContent = user["status"];
 
       userContainer.append(usernameContainer, statusContainer);
+
+      if (user.state === "UNREAD") {
+        const messageCircle = document.createElement("div");
+        messageCircle.className = "message-circle";
+        usernameContainer.appendChild(messageCircle);
+      }
 
       userList.appendChild(userContainer);
     });
@@ -280,7 +287,7 @@ export async function mainPage() {
   document.getElementById("chat").disabled = false;
 
   // when the user refreshes re-connect the websocket connection
-  userUpdateWs.send(JSON.stringify({type: "init", sender: currentUser}))
+  userUpdateWs.send(JSON.stringify({ type: "init", sender: currentUser }));
 
   window.localStorage.setItem("currentPage", "main");
 }
@@ -369,7 +376,7 @@ export async function messagePage() {
   let activeChatUser = null;
 
   // hide the message form when the user is not clicked
-  document.querySelector(".message-section").style.display = "none"
+  document.querySelector(".message-section").style.display = "none";
 
   async function initializeUsers() {
     usersContainer.innerHTML = "";
@@ -379,11 +386,13 @@ export async function messagePage() {
       allUsers.map(async (user) => {
         const details = await getUserDetails(user);
         const lastMessage = await getLastMessage(user);
-
+        console.log(lastMessage)
         return {
           username: user,
+          receiver: lastMessage ? lastMessage['receiver'] : null,
           status: details.status,
           lastLogin: details.last_login,
+          state: lastMessage ? lastMessage["is_read"] : null,
           lastMessageTime: lastMessage
             ? new Date(lastMessage["created_at"])
             : null,
@@ -397,29 +406,31 @@ export async function messagePage() {
         return b.lastMessageTime - a.lastMessageTime;
       }
 
-      // If one has a lastMessageTime and the other doesn't, the one with a message goes first
-      // if (a.lastMessageTime) return -1;
-      // if (b.lastMessageTime) return 1;
+      if (a.lastMessageTime) return -1;
+      if (b.lastMessageTime) return 1;
 
-      // First, sort by online status
-      if (a.status === "ONLINE" && b.status !== "ONLINE") return -1;
-      if (a.status !== "ONLINE" && b.status === "ONLINE") return 1;
+      // sort by username alphabetically
+      if (a.username.toLowerCase() < b.username.toLowerCase()) return -1;
+      if (a.username.toLowerCase() > b.username.toLowerCase()) return 1;
 
       // Otherwise, maintain their original order
       return 0;
     });
+
+    console.log(userDetails)
 
     // Clear and re-render the users list
     usersContainer.innerHTML = "";
 
     // Re-render the users list
     userDetails.forEach((user) => {
+      let messageCircle = null;
       const userContainer = document.createElement("div");
       userContainer.className = "user";
       userContainer.setAttribute("data-username", user["username"]);
 
       const nameContainer = document.createElement("div");
-      nameContainer.className = "user-name";
+      nameContainer.className = "username";
       nameContainer.textContent = user["username"];
 
       const statusContainer = document.createElement("div");
@@ -429,15 +440,35 @@ export async function messagePage() {
       userContainer.appendChild(nameContainer);
       userContainer.appendChild(statusContainer);
 
+      if (user.state === "UNREAD" && user.receiver === currentUser) {
+        messageCircle = document.createElement("div");
+        messageCircle.className = "message-circle";
+        nameContainer.appendChild(messageCircle);
+      }
+
       usersContainer.appendChild(userContainer);
 
       userContainer.addEventListener("click", async () => {
         currentIndex = 0;
         activeChatUser = user["username"];
         isUserClicked = true;
+        // send that the message is read
+        userUpdateWs.send(
+          JSON.stringify({
+            type: "read",
+            sender: currentUser,
+            receiver: user.username,
+          })
+        );
+
+        // remove the unread indicator if it exists
+        if (messageCircle) {
+          nameContainer.removeChild(messageCircle)
+          messageCircle = null
+        };
 
         // re-display the message forms
-        document.querySelector(".message-section").style.display = "flex"
+        document.querySelector(".message-section").style.display = "flex";
 
         const selectedUsername = document.querySelector(".selected-username");
         const lastLoginContainer = document.querySelector(".last-login");
@@ -515,7 +546,6 @@ export async function messagePage() {
   }
 
   window.handleWebSocketMessage = async (message) => {
-    // initializeUsers()
     const username = message["username"];
     const status = message["status"];
 

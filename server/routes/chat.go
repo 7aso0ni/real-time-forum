@@ -3,6 +3,8 @@ package routes
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -102,7 +104,7 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// set the data provided to the database
-		_, err = DB.Exec("INSERT INTO private_messages (sender_id, receiver_id, content) VALUES (?, ?, ?)", senderID, receiverID, msg.Content)
+		_, err = DB.Exec("INSERT INTO private_messages (sender_id, receiver_id, content, is_read) VALUES (?, ?, ?, 'UNREAD')", senderID, receiverID, msg.Content)
 		if err != nil {
 			conn.WriteJSON(ErrorMessage{Error: "Error inserting message"})
 			break
@@ -237,7 +239,8 @@ func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user struct {
-		Username string `json:"username"`
+		User1 string `json:"user1"`
+		User2 string `json:"user2"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
@@ -246,37 +249,85 @@ func GetLastUserMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the id from the username passed
-	var userID int
-	if err := DB.QueryRow("SELECT id FROM users WHERE nickname = ?", user.Username).Scan(&userID); err != nil {
+	var senderID, receiverID int
+	if err := DB.QueryRow("SELECT id FROM users WHERE nickname = ?", user.User1).Scan(&senderID); err != nil {
+		http.Error(w, "Error getting user data", http.StatusInternalServerError)
+		return
+	}
+
+	if err := DB.QueryRow("SELECT id FROM users WHERE nickname = ?", user.User2).Scan(&receiverID); err != nil {
 		http.Error(w, "Error getting user data", http.StatusInternalServerError)
 		return
 	}
 
 	var lastMessage Message
 
-	// Query to get the most recent message sent by the user
+	// store the id's temporarly for both the sender and the receiver
+	var tempSenderID, tempReceiverID int
+
+	// Query to get the most recent message sent by the user to the current user
 	query := `
-		SELECT content, created_at 
+		SELECT sender_id, receiver_id, content, created_at, is_read
 		FROM private_messages 
-		WHERE sender_id = ?OR receiver_id = ? 
+		WHERE 
+		sender_id = ? AND receiver_id = ? OR
+		sender_id = ? AND receiver_id = ?
 		ORDER BY created_at DESC 
 		LIMIT 1`
 
-	err := DB.QueryRow(query, userID, userID).Scan(
+	err := DB.QueryRow(query, senderID, receiverID, receiverID, senderID).Scan(
+		&tempSenderID,
+		&tempReceiverID,
 		&lastMessage.Content,
 		&lastMessage.CreatedAt,
+		&lastMessage.IsRead,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "No messages found", http.StatusNotFound)
 		} else {
+			fmt.Println(err)
 			http.Error(w, "Error fetching last message", http.StatusInternalServerError)
 		}
 		return
+	}
+
+	if tempSenderID == senderID {
+		lastMessage.Sender = user.User1
+		lastMessage.Receiver = user.User2
+	} else {
+		lastMessage.Sender = user.User2
+		lastMessage.Receiver = user.User1
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(lastMessage); err != nil {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 	}
+}
+
+func MessageIsRead(sender string, receiver string) error {
+	// Get the id from the username passed
+	var senderID, receiverID int
+	if err := DB.QueryRow("SELECT id FROM users WHERE nickname = ?", sender).Scan(&senderID); err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("sender not found")
+		}
+		return err
+	}
+
+	if err := DB.QueryRow("SELECT id FROM users WHERE nickname = ?", receiver).Scan(&receiverID); err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("receiver not found")
+		}
+
+		return err
+	}
+
+	if _, err := DB.Exec(`UPDATE private_messages SET is_read='READ' WHERE sender_id = ? AND receiver_id = ?;`, senderID, receiverID); err != nil {
+		fmt.Println(err)
+		return errors.New("failed to update message state")
+	}
+
+	return nil
 }

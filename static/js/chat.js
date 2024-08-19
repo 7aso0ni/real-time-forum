@@ -66,15 +66,16 @@ export async function getUserMessages(user) {
 
 export async function getLastMessage(username) {
   try {
+    const currentUser = localStorage.getItem("username");
     const response = await fetch("/last_message", {
       method: "POST",
-      body: JSON.stringify({ username }),
+      body: JSON.stringify({ user1: username, user2: currentUser }),
     });
 
     if (!response.ok) {
       const error = await response.text();
       // ignore this message
-      if (error === "No messages found") return null;
+      if (error.includes("No messages found")) return null;
 
       throw new Error(`${error} for ${username}`);
     }

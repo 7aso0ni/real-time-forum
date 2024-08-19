@@ -51,6 +51,7 @@ type Message struct {
 	Receiver  string    `json:"receiver"`
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
+	IsRead    string    `json:"is_read"`
 }
 
 type Result struct {

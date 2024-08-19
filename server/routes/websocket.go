@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -32,6 +33,11 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 			// if the type is logout remove the connection from the map
 			delete(ConnectedUsers, msg.Sender)
 			BroadcastUserUpdate(msg.Type, msg.Sender, "OFFLINE")
+		} else if msg.Type == "read" {
+			err := MessageIsRead(msg.Sender, msg.Receiver)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 }
